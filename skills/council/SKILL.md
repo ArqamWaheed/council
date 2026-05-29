@@ -1,0 +1,28 @@
+# Council Skill — how to weigh the jurors
+
+This skill is the council's **judging brain**. Hermes reads it before synthesizing a
+verdict and **appends to it over time** as it learns which juror to trust for which kind
+of question. That learning loop is the point: a static synthesis prompt can't improve;
+this can.
+
+## How the judge uses this file
+1. Classify the question's **topic** (security, database, architecture, general).
+2. Look up per-juror **weights** for that topic in the `weights` block below.
+3. Tally each position by its juror's weight; the highest-weighted position is the verdict.
+4. Confidence = winning weight / total weight (high when jurors agree, low on a split).
+
+## Judging rules
+- A contested split is **information, not noise** — always surface the dissent.
+- Never claim consensus equals truth. Report the split honestly.
+- Default every juror to weight `1.0` unless a learned rule below says otherwise.
+- Prefer the lower-risk, reversible option when jurors are evenly split.
+
+## Learned weights (Hermes edits this block)
+Format: `Juror Name | topic | multiplier`. Higher = more trusted for that topic.
+
+```weights
+```
+
+## Learnings log (human-readable; Hermes appends)
+<!-- e.g. "2026-05-29: On security questions the Local Juror caught an injection risk the
+hosted models missed across 3 runs — upweighted it to 1.5 for `security`." -->
