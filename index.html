@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Council — Convene the Jury</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,900;1,9..144,500&family=Newsreader:ital,opsz@0,6..72;1,6..72&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --ink:#16130f;
+    --ink-2:#1f1b15;
+    --parch:#efe7d6;
+    --parch-dim:#cdc2ab;
+    --oxblood:#8c2b27;
+    --oxblood-bright:#c0413b;
+    --brass:#c79a45;
+    --brass-bright:#e7c477;
+    --j1:#5a8f8b;   /* sea-slate  */
+    --j2:#b9743f;   /* terracotta */
+    --j3:#7d6aa8;   /* aubergine  */
+    --green:#6c9c5a;
+    --amber:#caa14a;
+    --red:#bb4a3f;
+    --line:rgba(199,154,69,.28);
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;min-height:100vh;color:var(--parch);
+    font-family:"Newsreader",Georgia,serif;font-size:18px;line-height:1.55;
+    background:
+      radial-gradient(1200px 600px at 80% -10%, rgba(140,43,39,.20), transparent 60%),
+      radial-gradient(900px 500px at -10% 110%, rgba(199,154,69,.12), transparent 55%),
+      var(--ink);
+    background-attachment:fixed;
+  }
+  body::before{ /* grain */
+    content:"";position:fixed;inset:0;pointer-events:none;opacity:.05;z-index:1;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  .wrap{max-width:980px;margin:0 auto;padding:48px 24px 96px;position:relative;z-index:2}
+
+  /* ---------- masthead ---------- */
+  header{border-bottom:2px solid var(--line);padding-bottom:22px;margin-bottom:34px}
+  .kicker{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.42em;
+    text-transform:uppercase;color:var(--brass);display:flex;gap:14px;align-items:center}
+  .kicker::after{content:"";flex:1;height:1px;background:var(--line)}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(46px,9vw,108px);
+    line-height:.92;margin:.18em 0 .1em;letter-spacing:-.02em;color:var(--parch)}
+  h1 .amp{color:var(--oxblood-bright);font-style:italic;font-weight:500}
+  .dek{font-style:italic;font-size:clamp(18px,2.4vw,23px);color:var(--parch-dim);max-width:46ch}
+
+  /* ---------- ask ---------- */
+  .ask{margin:38px 0 12px;display:flex;flex-direction:column;gap:14px}
+  label.q{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.28em;
+    text-transform:uppercase;color:var(--parch-dim)}
+  .field{display:flex;gap:12px;flex-wrap:wrap}
+  textarea{
+    flex:1;min-width:260px;min-height:64px;resize:vertical;
+    background:var(--ink-2);color:var(--parch);border:1px solid var(--line);
+    border-radius:3px;padding:16px 18px;font-family:"Newsreader",serif;font-size:19px;
+    transition:border-color .25s, box-shadow .25s;
+  }
+  textarea:focus{outline:none;border-color:var(--brass);
+    box-shadow:0 0 0 3px rgba(199,154,69,.14)}
+  button.convene{
+    background:linear-gradient(180deg,var(--oxblood-bright),var(--oxblood));
+    color:#f7eede;border:none;border-radius:3px;cursor:pointer;
+    font-family:"JetBrains Mono",monospace;font-weight:700;font-size:13px;
+    letter-spacing:.18em;text-transform:uppercase;padding:0 26px;min-height:64px;
+    box-shadow:0 6px 0 #5e1c19, 0 10px 22px rgba(0,0,0,.45);
+    transition:transform .08s ease, box-shadow .08s ease;align-self:stretch;
+  }
+  button.convene:hover{transform:translateY(-1px)}
+  button.convene:active{transform:translateY(5px);box-shadow:0 1px 0 #5e1c19}
+  button.convene:disabled{opacity:.55;cursor:wait}
+  .chips-suggest{display:flex;flex-wrap:wrap;gap:8px;margin-top:2px}
+  .chips-suggest button{
+    background:transparent;border:1px dashed var(--line);color:var(--parch-dim);
+    border-radius:999px;padding:5px 13px;cursor:pointer;font-family:"Newsreader",serif;
+    font-style:italic;font-size:14px;transition:.2s}
+  .chips-suggest button:hover{border-color:var(--brass);color:var(--brass-bright)}
+
+  /* ---------- verdict ---------- */
+  #stage{margin-top:40px}
+  .gavel{display:none;text-align:center;font-family:"JetBrains Mono",monospace;
+    letter-spacing:.3em;color:var(--brass);text-transform:uppercase;font-size:12px}
+  .gavel.show{display:block;animation:rap .5s ease}
+  @keyframes rap{0%{transform:rotate(-14deg) translateY(-8px);opacity:0}
+    60%{transform:rotate(6deg) translateY(0);opacity:1}100%{transform:rotate(0)}}
+
+  .verdict-card{
+    border:1px solid var(--line);border-radius:5px;overflow:hidden;
+    background:linear-gradient(180deg,rgba(31,27,21,.92),rgba(22,19,15,.92));
+    box-shadow:0 24px 60px rgba(0,0,0,.5);opacity:0;transform:translateY(18px);
+  }
+  .verdict-card.in{animation:rise .6s cubic-bezier(.2,.8,.2,1) forwards}
+  @keyframes rise{to{opacity:1;transform:none}}
+
+  .vc-top{display:grid;grid-template-columns:1fr auto;gap:24px;align-items:center;
+    padding:30px 32px;border-bottom:1px solid var(--line);
+    background:radial-gradient(600px 200px at 0% 0%,rgba(140,43,39,.18),transparent)}
+  .vc-label{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.34em;
+    text-transform:uppercase;color:var(--brass)}
+  .vc-verdict{font-family:"Fraunces",serif;font-weight:600;font-size:clamp(24px,4vw,38px);
+    line-height:1.15;margin:.25em 0 0;color:var(--parch)}
+  .vc-topic{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--parch-dim);
+    margin-top:10px;letter-spacing:.12em}
+
+  /* dial */
+  .dial{position:relative;width:132px;height:132px;flex:none}
+  .dial svg{transform:rotate(-90deg)}
+  .dial .num{position:absolute;inset:0;display:flex;flex-direction:column;
+    align-items:center;justify-content:center}
+  .dial .pct{font-family:"Fraunces",serif;font-weight:900;font-size:34px;line-height:1}
+  .dial .cap{font-family:"JetBrains Mono",monospace;font-size:9px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--parch-dim);margin-top:4px}
+  .split-pill{font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.1em;
+    margin-top:8px;color:var(--parch);border:1px solid var(--line);border-radius:999px;
+    padding:2px 10px;display:inline-block}
+
+  /* jurors */
+  .jurors{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+    gap:0;border-bottom:1px solid var(--line)}
+  .juror{padding:22px 24px;border-right:1px solid var(--line);position:relative}
+  .juror:last-child{border-right:none}
+  .juror .top{display:flex;align-items:center;gap:9px;margin-bottom:10px}
+  .dot{width:11px;height:11px;border-radius:50%;flex:none;box-shadow:0 0 12px currentColor}
+  .juror .name{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.2em;
+    text-transform:uppercase}
+  .juror .model{font-family:"JetBrains Mono",monospace;font-size:10px;color:var(--parch-dim);
+    word-break:break-all;margin-bottom:12px;opacity:.8}
+  .juror .pos{font-family:"Fraunces",serif;font-weight:600;font-size:23px;margin-bottom:10px}
+  .juror ul{margin:0;padding-left:18px}
+  .juror li{font-size:15px;color:var(--parch-dim);margin-bottom:5px;line-height:1.4}
+  .wbadge{position:absolute;top:18px;right:18px;font-family:"JetBrains Mono",monospace;
+    font-size:10px;color:var(--brass);border:1px solid var(--line);border-radius:3px;
+    padding:1px 6px}
+
+  /* dissent */
+  .panel{border-top:1px solid transparent}
+  details{padding:0 32px}
+  summary{cursor:pointer;list-style:none;padding:20px 0;display:flex;align-items:center;
+    gap:12px;font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.18em;
+    text-transform:uppercase;color:var(--oxblood-bright)}
+  summary::-webkit-details-marker{display:none}
+  summary .tri{transition:transform .25s}
+  details[open] summary .tri{transform:rotate(90deg)}
+  .dissent-body{padding:0 0 26px}
+  .dissent-body .row{border-left:2px solid var(--oxblood);padding:6px 0 6px 16px;
+    margin-bottom:12px;color:var(--parch);font-style:italic}
+  .agree{padding:4px 0 26px}
+  .agree h4,.dissent-body h4{font-family:"JetBrains Mono",monospace;font-size:11px;
+    letter-spacing:.24em;text-transform:uppercase;color:var(--parch-dim);margin:0 0 10px}
+  .agree li{color:var(--parch-dim)}
+
+  .empty{color:var(--parch-dim);font-style:italic;text-align:center;padding:60px 20px}
+  .err{color:var(--oxblood-bright);font-family:"JetBrains Mono",monospace;font-size:14px}
+  .mock-note{font-family:"JetBrains Mono",monospace;font-size:10px;color:var(--brass);
+    text-align:center;padding:14px;letter-spacing:.1em;border-top:1px solid var(--line)}
+
+  footer{margin-top:54px;border-top:1px solid var(--line);padding-top:18px;
+    display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;
+    font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--parch-dim);
+    letter-spacing:.14em}
+  footer a{color:var(--brass)}
+  .spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(247,238,222,.4);
+    border-top-color:#f7eede;border-radius:50%;animation:sp .7s linear infinite;
+    vertical-align:-2px;margin-right:8px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="kicker">Hermes Agent · Three Models · One Verdict · $0</div>
+    <h1>The&nbsp;Council</h1>
+    <p class="dek">Don't trust one model. Convene a jury &mdash; let them argue, then let Hermes be the judge.</p>
+  </header>
+
+  <section class="ask">
+    <label class="q" for="q">Put a judgment call to the council</label>
+    <div class="field">
+      <textarea id="q" placeholder="Should a 3-person startup use microservices or a monolith?"></textarea>
+      <button class="convene" id="go">Convene</button>
+    </div>
+    <div class="chips-suggest" id="suggest">
+      <button>Postgres or Mongo for a new SaaS?</button>
+      <button>Is JWT in localStorage a secure way to store auth tokens?</button>
+      <button>Should we rewrite the legacy service or refactor it?</button>
+    </div>
+  </section>
+
+  <div id="stage">
+    <div class="empty">No verdict yet. Ask the council a question above.</div>
+  </div>
+
+  <footer>
+    <span>COUNCIL · MIT LICENSED</span>
+    <span>POWERED BY <a href="https://github.com/NousResearch">HERMES AGENT</a> — MODEL-AGNOSTIC</span>
+  </footer>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const stage = $("#stage"), go = $("#go"), q = $("#q");
+const JCOLORS = ["var(--j1)","var(--j2)","var(--j3)"];
+
+$("#suggest").addEventListener("click", e=>{
+  if(e.target.tagName==="BUTTON"){ q.value = e.target.textContent; convene(); }
+});
+go.addEventListener("click", convene);
+q.addEventListener("keydown", e=>{ if(e.key==="Enter" && (e.metaKey||e.ctrlKey)) convene(); });
+
+function dialColor(c){ return c>=0.75 ? "var(--green)" : c>=0.5 ? "var(--amber)" : "var(--red)"; }
+
+async function convene(){
+  const question = q.value.trim();
+  if(!question){ q.focus(); return; }
+  go.disabled = true; go.innerHTML = '<span class="spin"></span>Deliberating';
+  stage.innerHTML = '<div class="empty"><span class="spin"></span> The jurors are deliberating&hellip;</div>';
+  try{
+    const res = await fetch("/api/convene",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({question})});
+    const d = await res.json();
+    if(d.error) throw new Error(d.error);
+    render(d);
+  }catch(err){
+    stage.innerHTML = '<div class="empty err">The council could not convene: '+err.message+'</div>';
+  }finally{
+    go.disabled = false; go.textContent = "Convene";
+  }
+}
+
+function render(d){
+  const pct = Math.round(d.confidence*100);
+  const R=58, C=2*Math.PI*R, off=C*(1-d.confidence), col=dialColor(d.confidence);
+  const anyMock = d.jurors.some(j=>j.mocked);
+
+  const jurorsHTML = d.jurors.map((j,i)=>{
+    const c = JCOLORS[i % JCOLORS.length];
+    const reasons = (j.reasons||[]).map(r=>`<li>${esc(r)}</li>`).join("") || "<li>(no reasons given)</li>";
+    const wb = (j.weight && j.weight!==1) ? `<span class="wbadge">&times;${j.weight}</span>` : "";
+    return `<div class="juror">${wb}
+      <div class="top"><span class="dot" style="color:${c};background:${c}"></span>
+        <span class="name" style="color:${c}">${esc(j.name)}</span></div>
+      <div class="model">${esc(j.model)}</div>
+      <div class="pos">${esc(j.position)}</div>
+      <ul>${reasons}</ul></div>`;
+  }).join("");
+
+  const dissentHTML = d.dissents.length
+    ? `<div class="dissent-body"><h4>Where they split</h4>` +
+       d.dissents.map(x=>`<div class="row">${esc(x)}</div>`).join("") +
+       (d.agreements.length?`<div class="agree"><h4>What they agreed on</h4><ul>`+
+         d.agreements.map(a=>`<li>${esc(a)}</li>`).join("")+`</ul></div>`:"") + `</div>`
+    : `<div class="dissent-body"><div class="row">No dissent — the jurors were unanimous.</div>`+
+      (d.agreements.length?`<div class="agree"><h4>Shared reasoning</h4><ul>`+
+         d.agreements.map(a=>`<li>${esc(a)}</li>`).join("")+`</ul></div>`:"")+`</div>`;
+
+  stage.innerHTML = `
+   <div class="gavel show">&#9878;&nbsp; The court is in session &nbsp;&#9878;</div>
+   <article class="verdict-card">
+    <div class="vc-top">
+      <div>
+        <div class="vc-label">The Verdict ${d.weighted?"· weighted":""}</div>
+        <h2 class="vc-verdict">${esc(d.verdict)}</h2>
+        <div class="vc-topic">topic: ${esc(d.topic)} · ${d.unanimous?"unanimous":"contested"}</div>
+      </div>
+      <div style="text-align:center">
+        <div class="dial">
+          <svg width="132" height="132">
+            <circle cx="66" cy="66" r="${R}" fill="none" stroke="rgba(199,154,69,.18)" stroke-width="10"/>
+            <circle cx="66" cy="66" r="${R}" fill="none" stroke="${col}" stroke-width="10"
+              stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C}"
+              style="transition:stroke-dashoffset 1s cubic-bezier(.2,.8,.2,1)"
+              data-off="${off}"/>
+          </svg>
+          <div class="num"><div class="pct" style="color:${col}">${pct}%</div>
+            <div class="cap">Confidence</div></div>
+        </div>
+        <div class="split-pill">split ${esc(d.split)}</div>
+      </div>
+    </div>
+    <div class="jurors">${jurorsHTML}</div>
+    <div class="panel"><details open><summary><span class="tri">&#9656;</span> Why they ${d.unanimous?"agreed":"disagreed"}</summary>${dissentHTML}</details></div>
+    ${anyMock?'<div class="mock-note">OFFLINE MOCK MODE — add a free OpenRouter key to .env to convene real models</div>':''}
+   </article>`;
+
+  requestAnimationFrame(()=>{
+    $(".verdict-card").classList.add("in");
+    const arc = stage.querySelector("circle[data-off]");
+    requestAnimationFrame(()=> arc.style.strokeDashoffset = arc.dataset.off);
+  });
+}
+
+function esc(s){ return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+</script>
+</body>
+</html>
