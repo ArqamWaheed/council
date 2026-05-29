@@ -34,7 +34,8 @@ score + a "why they disagreed" panel. Verdicts are remembered; a skill learns wh
 
 ## File map
 - `jurors.py`       — fan-out: query each juror (OpenRouter/Ollama) or mock
-- `run_council.py`  — judge: synthesize verdict/confidence/dissent JSON, store to memory
+- `run_council.py`  — judge: cluster stances, synthesize verdict/confidence/dissent, store memory
+- `tests/test_judge.py` — unit tests for stance clustering (run: python -m unittest discover -s tests)
 - `council/memory.py` — append/query past verdicts (data/verdicts.jsonl)
 - `skills/council/SKILL.md` — juror-weighting brain Hermes edits (learning loop)
 - `server.py`       — Flask endpoint serving index.html + /api/convene
