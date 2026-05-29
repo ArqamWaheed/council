@@ -1,5 +1,7 @@
 # ⚖️ Council
 
+[![tests](https://github.com/ArqamWaheed/council/actions/workflows/tests.yml/badge.svg)](https://github.com/ArqamWaheed/council/actions/workflows/tests.yml)
+
 > **Don't trust one model. Convene a jury.**
 > Make your AI models argue, then let Hermes be the judge.
 
@@ -46,26 +48,64 @@ python run_council.py "Should we use Postgres or Mongo for a new SaaS?"   # CLI 
 streamlit run app.py                                                       # plainer fallback UI
 ```
 
+### Run it *through* Hermes (the real thing)
+
+Council orchestrates through **Hermes Agent** by default. One command installs Hermes, hands it
+your OpenRouter key, registers a local Ollama provider, and installs the learnable skill:
+
+```bash
+./setup_hermes.sh          # idempotent: install Hermes + wire key + ollama-local + skill
+python run_council.py "Postgres or Mongo for a new SaaS?"   # each juror now runs via `hermes -z`
+hermes -z "Check your memory. What has the council decided about Postgres vs Mongo?"  # recall
+```
+
+Set `HERMES_ORCHESTRATION=0` to bypass Hermes and use the direct API / mock path.
+
 ---
 
 ## How it works
 
+**Hermes Agent is the orchestrator — it does the real work, not just the narration.**
+Each juror is an independent Hermes run on a *different* model; the foreman's verdict
+is a Hermes run *grounded in the council skill*; learning and recall use Hermes' own
+skill file and memory.
+
 ```
-question ──▶ jurors.py (fan-out)         ──▶ run_council.py (judge)        ──▶ verdict JSON
-              • Juror 1  (OpenRouter free)     • tally positions by weight       + stored in memory
-              • Juror 2  (OpenRouter free)     • confidence = agreement
-              • Local Juror (Ollama, opt.)     • surface the dissent
+                         ┌──────────────────────────────┐
+   "Postgres or Mongo?"  │        HERMES  AGENT          │
+            │            │      (model-agnostic)         │
+            ▼            └──────────────┬───────────────┘
+   ┌──────────────────┬────────────────┼────────────────┬──────────────────┐
+   ▼ (parallel)        ▼                                  ▼                  ▼
+ hermes -z          hermes -z                         hermes -z        hermes -z --skills council
+ --provider         --provider                        --provider        ╔════════════════════╗
+  openrouter         openrouter                        ollama-local      ║  FOREMAN / JUDGE   ║
+ ┌──────────┐      ┌──────────┐                      ┌──────────┐        ║ cluster · confidence
+ │ Juror 1  │      │ Juror 2  │                      │  Local   │  ───▶  ║ · split · dissent  ║
+ │ gpt-oss  │      │ glm-4.5  │                      │ Juror    │        ╚═════════┬══════════╝
+ │ (hosted) │      │ (hosted) │                      │ (Ollama) │                  │
+ └──────────┘      └──────────┘                      └──────────┘                  ▼
+   different model families ───────── on-device ──────┘            verdict + confidence + dissent
+                                                                          │   (read aloud, TTS)
+                  skills/council/SKILL.md  ◀── --learn (self-improving)    ▼
+                  Hermes MEMORY.md         ◀── every verdict ──▶ recall via `hermes -z`
 ```
 
-- **Fan-out (`jurors.py`)** — each juror is a different model, queried over the
-  OpenAI-compatible API (Hermes' `execute_code` path). Each takes one clear position + 3 reasons.
-- **Judge (`run_council.py`)** — deterministic synthesis into a single verdict, a confidence
-  score (high when jurors agree, low on a split), agreements, and dissents.
-- **Skill (`skills/council/SKILL.md`)** — the juror-weighting *brain*. Hermes appends learned
-  rules over time (e.g. "upweight the local model on `security`"). A static prompt can't improve;
+- **Jurors (`jurors.py` → `hermes_run.py`)** — `convene()` fans out one Hermes run per juror,
+  **in parallel**. Hosted jurors use Hermes' `openrouter` provider; the local juror uses a Hermes
+  custom provider (`ollama-local`), so a hosted and an on-device model run through the *same*
+  model-agnostic interface. Each juror in the JSON is tagged `"via": "hermes"`.
+- **Judge / foreman (`run_council.py`)** — deterministic clustering sets the confidence, split,
+  agreements and dissents (so it's testable); the spoken **foreman** summary is synthesized by
+  Hermes via `hermes -z --skills council`. The UI can read it aloud (browser TTS; Hermes also ships
+  native TTS via `hermes setup tts`).
+- **Skill (`skills/council/SKILL.md`)** — the juror-weighting *brain*, installed into Hermes.
+  `--learn` appends a rule **and syncs the installed Hermes copy**. A static prompt can't improve;
   this can.
-- **Memory (`council/memory.py`)** — every verdict is logged to `data/verdicts.jsonl`, so you can
-  ask `python run_council.py --history auth` for what the council decided before.
+- **Memory (`council/memory.py`)** — every verdict is logged to `data/verdicts.jsonl` *and mirrored
+  into Hermes' `MEMORY.md`*, so `hermes -z "what did the council decide about auth?"` recalls it.
+
+See [`docs/hermes-proof/`](docs/hermes-proof/) for transcripts proving Hermes is in the loop.
 
 ### The learning loop
 
@@ -125,11 +165,13 @@ change. (Offline mock mode already simulates this third juror so demos show thre
 
 | File | Role |
 |---|---|
-| `jurors.py` | Fan-out: query each juror, or deterministic mock offline |
-| `run_council.py` | Judge: synthesize verdict/confidence/dissent, store memory |
-| `council/memory.py` | Persist + recall past verdicts |
-| `skills/council/SKILL.md` | Learnable juror-weighting brain |
-| `server.py` + `index.html` | Designed single-page verdict UI |
+| `hermes_run.py` | Drive the Hermes CLI (`hermes -z`) per juror/judge; availability + fallback |
+| `jurors.py` | Fan-out: one Hermes run per juror (parallel), or direct API / mock |
+| `run_council.py` | Judge: synthesize verdict/confidence/dissent + Hermes foreman, store memory |
+| `council/memory.py` | Persist + recall past verdicts (mirrors into Hermes `MEMORY.md`) |
+| `skills/council/SKILL.md` | Learnable juror-weighting brain, installed into Hermes |
+| `setup_hermes.sh` | Idempotent: install Hermes, wire key, register `ollama-local`, install skill |
+| `server.py` + `index.html` | Designed single-page verdict UI (with foreman TTS readout) |
 | `app.py` | Streamlit fallback UI |
 
 Agent workflow notes live in [`AGENTS.md`](AGENTS.md) and [`memory.md`](memory.md).
