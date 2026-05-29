@@ -31,10 +31,11 @@ this can.
 
 ## Learned weights (Hermes edits this block)
 Format: `Juror Name | topic | multiplier`. Higher = more trusted for that topic.
+Only add a rule that is backed by a repeated pattern in the verdict history.
 
 ```weights
 ```
 
 ## Learnings log (human-readable; Hermes appends)
-<!-- e.g. "2026-05-29: On security questions the Local Juror caught an injection risk the
-hosted models missed across 3 runs — upweighted it to 1.5 for `security`." -->
+<!-- Append a dated note ONLY when the dissent tally shows a repeated pattern across
+several verdicts. Base the rule on the data, not on this comment. -->

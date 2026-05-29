@@ -269,6 +269,19 @@ const $ = s => document.querySelector(s);
 const stage = $("#stage"), go = $("#go"), q = $("#q");
 const JCOLORS = ["var(--j1)","var(--j2)","var(--j3)"];
 
+/* Learned weights persist in the browser so a stateless deploy keeps them and
+   re-sends them with every convene (the server applies them per request). */
+const LS_KEY = "council.weights";
+function getLearned(){
+  try{ return JSON.parse(localStorage.getItem(LS_KEY) || "[]"); }catch(e){ return []; }
+}
+function addLearned(rule){
+  const norm = r => r.split("|").slice(0,2).map(s=>s.trim().toLowerCase()).join("|");
+  const rules = getLearned().filter(r => norm(r) !== norm(rule)); // replace same juror+topic
+  rules.push(rule);
+  try{ localStorage.setItem(LS_KEY, JSON.stringify(rules)); }catch(e){}
+}
+
 $("#suggest").addEventListener("click", e=>{
   if(e.target.tagName==="BUTTON"){ q.value = e.target.textContent; convene(); }
 });
@@ -285,7 +298,7 @@ async function convene(){
   const stop = startLoader();
   try{
     const res = await fetch("/api/convene",{method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({question})});
+      body:JSON.stringify({question, weights:getLearned()})});
     const d = await res.json();
     if(d.error) throw new Error(d.error);
     await stop(true);
@@ -443,6 +456,7 @@ async function applyRule(rule){
       body:JSON.stringify({rule})});
     const d = await res.json();
     if(d.error) throw new Error(d.error);
+    addLearned(d.applied);   // persist in the browser so it survives a stateless deploy
     box.innerHTML = `<div class="rf-msg ok">&#10003; Learned: <code>${esc(d.applied)}</code> &mdash; it will weigh on the next verdict.</div>`;
   }catch(err){
     box.innerHTML = `<div class="rf-msg err">Could not apply: ${esc(err.message)}</div>`;

@@ -125,9 +125,13 @@ Hermes proposes a rule, you **Approve** or **Dismiss** in the browser.
 Either way the rule lands in the skill's `weights` block (and syncs to the installed Hermes copy);
 on the next question of that topic the juror's vote is multiplied accordingly, read back by the
 judge automatically. `--reflect` keeps a **human in the loop** on purpose — a single verdict has no
-ground truth, so the council *proposes* a weighting from a repeated pattern (e.g. a juror whose
-dissent keeps proving worth hearing) and waits for your `y`. Offline, it falls back to a
-deterministic heuristic so it still works with no key.
+ground truth, so the council *proposes* a weighting from a repeated pattern in its **dissent tally**
+(it rejects any rule not backed by ≥2 real dissents, so it can't just echo an example) and waits for
+your `y`. Offline, it falls back to a deterministic heuristic so it still works with no key.
+
+**Persistence on a stateless deploy:** the web UI also stores approved rules in the browser
+(`localStorage`) and re-sends them with every convene, so learning survives even when the host has no
+writable `SKILL.md` (the server applies per-request `weights`). Locally/CLI, `SKILL.md` is the store.
 
 ### Verdict JSON schema
 

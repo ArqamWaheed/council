@@ -43,6 +43,9 @@ score + a "why they disagreed" panel. Verdicts are remembered; a skill learns wh
   Hermes reviews its own verdict memory, proposes ONE weight rule, human approves; offline =
   deterministic heuristic over repeated dissents). Rules validated (known juror/topic, 0.25–3.0, ≠1.0).
   Web UI exposes both: `/api/reflect` (propose) + `/api/learn` (apply) behind a "reweight itself" button.
+  Reflect is evidence-grounded: rejects any proposed rule not backed by ≥2 real dissents in the tally
+  (prevents Hermes parroting the skill's example). Web learning also persists in browser localStorage and
+  is re-sent per convene (`run(question, extra_weights)` / `parse_weights`) so stateless deploys keep it.
 - Confidence = agreement among jurors (high when aligned, low on a 2-1 split).
 - Mock fallback so `setup.sh` → demo works with zero credentials.
 - Max 3 jurors in the demo (clarity + latency + cost).

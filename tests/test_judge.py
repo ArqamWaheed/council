@@ -145,6 +145,30 @@ class TestReflect(unittest.TestCase):
         from run_council import suggest_weight
         self.assertIsNone(suggest_weight(self._records()[:1]))
 
+    def test_parse_weights_filters_invalid(self):
+        from run_council import parse_weights
+        w = parse_weights([
+            "Local Juror | database | 1.5",   # valid
+            "Ghost | database | 1.5",         # unknown juror -> dropped
+            "Local Juror | database | 1.0",   # no-op -> dropped
+            "garbage",                        # malformed -> dropped
+        ])
+        self.assertEqual(w, {("local juror", "database"): 1.5})
+
+    def test_extra_weights_flip_the_verdict(self):
+        """Client-supplied weights (e.g. browser localStorage) must sway the judge."""
+        jurors = [
+            op("Juror 1", "Postgres is better"),
+            op("Juror 2", "Postgres for ACID"),
+            op("Local Juror", "Mongo for flexibility"),
+        ]
+        base = judge("Postgres or Mongo for a new SaaS?", jurors)
+        self.assertIn("Postgres", base["verdict"])
+        # Upweight the lone Mongo dissenter enough to win (1 vs 2 -> 3 vs 2).
+        swayed = judge("Postgres or Mongo for a new SaaS?", jurors,
+                       {("local juror", "database"): 3.0})
+        self.assertIn("Mongo", swayed["verdict"])
+
 
 if __name__ == "__main__":
     unittest.main()

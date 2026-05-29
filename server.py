@@ -14,7 +14,7 @@ from pathlib import Path
 from flask import Flask, jsonify, request, send_from_directory
 
 from council import memory
-from run_council import _valid_rule, learn, run, suggest_weight
+from run_council import _valid_rule, learn, parse_weights, run, suggest_weight
 
 ROOT = Path(__file__).resolve().parent
 app = Flask(__name__, static_folder=None)
@@ -31,7 +31,10 @@ def convene_endpoint():
     question = (data.get("question") or "").strip()
     if not question:
         return jsonify({"error": "question is required"}), 400
-    return jsonify(run(question))
+    # Client may carry its own learned weights (e.g. browser localStorage) so a
+    # stateless deployment persists learning without a writable SKILL.md.
+    extra = parse_weights(data.get("weights"))
+    return jsonify(run(question, extra))
 
 
 @app.get("/api/history")
@@ -55,8 +58,12 @@ def learn_endpoint():
     rule = _valid_rule((data.get("rule") or "").strip())
     if not rule:
         return jsonify({"error": "invalid rule"}), 400
-    learn(rule)
-    return jsonify({"applied": rule})
+    persisted = True
+    try:
+        learn(rule)          # writes SKILL.md locally; may fail on a read-only deploy
+    except Exception:
+        persisted = False    # fine — the client keeps it in localStorage and re-sends it
+    return jsonify({"applied": rule, "persisted": persisted})
 
 
 if __name__ == "__main__":

@@ -138,9 +138,11 @@ def _same_stance(a: str, b: str) -> bool:
     return na == nb
 
 
-def judge(question: str, opinions: list[Opinion]) -> dict:
+def judge(question: str, opinions: list[Opinion], extra_weights: dict | None = None) -> dict:
     topic = classify(question)
     weights = load_weights()
+    if extra_weights:
+        weights.update(extra_weights)
 
     def w_of(op: Opinion) -> float:
         return weights.get((op.name.lower(), topic), 1.0)
@@ -264,8 +266,8 @@ def foreman(question: str, verdict: dict) -> str:
         return ""
 
 
-def run(question: str) -> dict:
-    verdict = judge(question, convene(question))
+def run(question: str, extra_weights: dict | None = None) -> dict:
+    verdict = judge(question, convene(question), extra_weights)
     verdict["foreman"] = foreman(question, verdict)
     memory.remember(verdict)
     return verdict
@@ -374,8 +376,28 @@ def _fallback_suggestion(tally: dict):
     }
 
 
-def _hermes_suggestion(lines: list[str]):
-    """Ask Hermes (grounded in the council skill) to propose ONE weight rule, or None."""
+def parse_weights(rules) -> dict:
+    """Turn a list of 'Juror | topic | multiplier' strings into a weights dict.
+
+    Used to apply client-side (e.g. browser localStorage) weights per request, so a
+    stateless deployment can persist learning without a writable SKILL.md.
+    """
+    out: dict[tuple[str, str], float] = {}
+    for r in rules or []:
+        valid = _valid_rule(r if isinstance(r, str) else "")
+        if valid:
+            name, topic, mult = [p.strip() for p in valid.split("|")]
+            out[(name.lower(), topic.lower())] = float(mult)
+    return out
+
+
+def _hermes_suggestion(lines: list[str], tally: dict):
+    """Ask Hermes (grounded in the council skill) to propose ONE weight rule, or None.
+
+    The proposal must be backed by the real dissent tally — we reject rules whose
+    (juror, topic) lacks repeated evidence so Hermes can't just parrot the skill's
+    worked example.
+    """
     if not hermes_run.available():
         return None
     provider = "openrouter" if os.getenv("OPENROUTER_API_KEY", "").strip() else ""
@@ -386,12 +408,19 @@ def _hermes_suggestion(lines: list[str]):
     )
     jurors = ", ".join(c.name for c in roster())
     topics = ", ".join(sorted(set(TOPICS) | {"general"}))
+    evidence = "\n".join(
+        f"  {name} on '{topic}': dissented {d}/{appeared}"
+        for (name, topic), (d, appeared) in sorted(tally.items(), key=lambda x: -x[1][0])
+        if d > 0
+    ) or "  (no dissents recorded)"
     prompt = (
         "You are the council foreman reviewing your own memory to improve future judging. "
-        "Below are recent verdicts. Decide whether ONE juror has earned a changed weight on "
-        "ONE topic — e.g. a juror whose dissent keeps proving worth hearing should be upweighted. "
-        "Be conservative: only suggest a change with a real, repeated pattern.\n\n"
-        f"JURORS: {jurors}\nTOPICS: {topics}\n\nRECENT VERDICTS:\n" + "\n".join(lines) +
+        "Below are recent verdicts and a DISSENT TALLY. Decide whether ONE juror has earned a "
+        "changed weight on ONE topic — base it ONLY on the tally, not on any example. Only "
+        "propose a topic where that juror has dissented at least twice. If nothing qualifies, "
+        "say NO_CHANGE.\n\n"
+        f"JURORS: {jurors}\nTOPICS: {topics}\n\nDISSENT TALLY:\n{evidence}\n\n"
+        "RECENT VERDICTS:\n" + "\n".join(lines) +
         "\n\nReply with EXACTLY one line, nothing else, in one of these two forms:\n"
         "RULE: <Juror> | <topic> | <multiplier between 0.25 and 3.0>\n"
         "NO_CHANGE: <one-line reason>"
@@ -406,7 +435,10 @@ def _hermes_suggestion(lines: list[str]):
     rule = _valid_rule(m.group(1))
     if not rule:
         return None
-    return {"rule": rule, "why": "Hermes reviewed recent verdicts and proposed this rule.",
+    name, topic, _mult = [p.strip() for p in rule.split("|")]
+    if tally.get((name.lower(), topic.lower()), [0, 0])[0] < 2:
+        return None  # not backed by repeated dissents — likely anchored on the example
+    return {"rule": rule, "why": "Hermes reviewed the dissent tally and proposed this rule.",
             "via": "hermes"}
 
 
@@ -417,7 +449,7 @@ def suggest_weight(records: list[dict] | None = None):
     if len(records) < 2:
         return None
     lines, tally = reflection_evidence(records)
-    return _hermes_suggestion(lines) or _fallback_suggestion(tally)
+    return _hermes_suggestion(lines, tally) or _fallback_suggestion(tally)
 
 
 def reflect(auto_approve: bool = False, prompt_fn=input) -> None:
