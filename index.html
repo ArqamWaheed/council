@@ -174,6 +174,34 @@
   .mock-note{font-family:var(--mono);font-size:10px;color:var(--brass);
     text-align:center;padding:14px;letter-spacing:.1em;border-top:1px solid var(--line)}
 
+  /* ---- reflect / self-reweighting ---- */
+  .reflect{border-top:1px solid var(--line);padding:20px 32px;text-align:center}
+  .reflect-btn{cursor:pointer;background:transparent;color:var(--brass-bright);
+    border:1px dashed var(--line);border-radius:999px;padding:10px 20px;
+    font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;
+    transition:.2s}
+  .reflect-btn:hover{border-color:var(--brass);background:rgba(199,154,69,.08)}
+  .rf-status,.rf-msg{font-family:var(--mono);font-size:12px;letter-spacing:.08em;
+    color:var(--parch-dim)}
+  .rf-msg.ok{color:var(--brass-bright)} .rf-msg.err{color:var(--oxblood-bright)}
+  .rf-msg code{font-size:.9em;background:rgba(199,154,69,.14);padding:1px 6px;border-radius:4px}
+  .rf-card{max-width:520px;margin:0 auto;text-align:left;border:1px solid var(--line);
+    border-radius:12px;padding:20px 22px;background:rgba(199,154,69,.05)}
+  .rf-head{font-family:var(--mono);font-size:11px;letter-spacing:.24em;text-transform:uppercase;
+    color:var(--brass);display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .rf-via{font-size:9px;color:var(--parch-dim);border:1px solid var(--line);
+    border-radius:999px;padding:2px 8px;letter-spacing:.1em}
+  .rf-rule{font-family:var(--mono);font-size:17px;color:var(--parch);margin:12px 0 8px;
+    letter-spacing:.02em}
+  .rf-why{font-size:14px;color:var(--parch-2);line-height:1.5;margin:0 0 18px;font-style:italic}
+  .rf-actions{display:flex;gap:10px}
+  .rf-actions button{cursor:pointer;font-family:var(--mono);font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;border-radius:999px;padding:9px 18px;border:1px solid var(--line);transition:.2s}
+  .rf-approve{background:var(--brass);color:#1a1410;border-color:var(--brass)}
+  .rf-approve:hover{filter:brightness(1.08)}
+  .rf-dismiss{background:transparent;color:var(--parch-dim)}
+  .rf-dismiss:hover{border-color:var(--oxblood-bright);color:var(--oxblood-bright)}
+
   footer{margin-top:54px;border-top:1px solid var(--line);padding-top:18px;
     display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;
     font-family:var(--mono);font-size:11px;color:var(--parch-dim);
@@ -359,6 +387,7 @@ function render(d){
     <div class="jurors">${jurorsHTML}</div>
     <div class="panel"><details open><summary><span class="tri">&#9656;</span> Why they ${d.unanimous?"agreed":"disagreed"}</summary>${dissentHTML}</details></div>
     ${anyMock?'<div class="mock-note">OFFLINE MOCK MODE — add a free OpenRouter key to .env to convene real models</div>':''}
+    <div class="reflect" id="reflect">${reflectBtnHTML()}</div>
    </article>`;
 
   requestAnimationFrame(()=>{
@@ -368,6 +397,56 @@ function render(d){
   });
 
   wireTTS(d);
+  wireReflect();
+}
+
+/* ---------- the council reflects on its record and proposes a reweighting ---------- */
+function reflectBtnHTML(){
+  return '<button class="reflect-btn" id="reflectBtn">&#9878; Should the council reweight itself?</button>';
+}
+function wireReflect(){
+  const b = $("#reflectBtn");
+  if(b) b.addEventListener("click", reflect);
+}
+async function reflect(){
+  const box = $("#reflect");
+  box.innerHTML = '<div class="rf-status"><span class="spin"></span>The council reviews its record&hellip;</div>';
+  try{
+    const res = await fetch("/api/reflect");
+    const d = await res.json();
+    if(!d.suggestion){
+      box.innerHTML = `<div class="rf-msg">${esc(d.message||"Not enough signal yet.")}</div>`;
+      return;
+    }
+    const s = d.suggestion;
+    box.innerHTML = `
+      <div class="rf-card">
+        <div class="rf-head"><span>Proposed reweighting</span><span class="rf-via">${esc(s.via)}</span></div>
+        <div class="rf-rule">${esc(s.rule)}</div>
+        <p class="rf-why">${esc(s.why)}</p>
+        <div class="rf-actions">
+          <button class="rf-approve" id="rfApprove">Approve</button>
+          <button class="rf-dismiss" id="rfDismiss">Dismiss</button>
+        </div>
+      </div>`;
+    $("#rfApprove").addEventListener("click", ()=>applyRule(s.rule));
+    $("#rfDismiss").addEventListener("click", ()=>{ box.innerHTML = reflectBtnHTML(); wireReflect(); });
+  }catch(err){
+    box.innerHTML = `<div class="rf-msg err">Reflection failed: ${esc(err.message)}</div>`;
+  }
+}
+async function applyRule(rule){
+  const box = $("#reflect");
+  box.innerHTML = '<div class="rf-status"><span class="spin"></span>Applying&hellip;</div>';
+  try{
+    const res = await fetch("/api/learn",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({rule})});
+    const d = await res.json();
+    if(d.error) throw new Error(d.error);
+    box.innerHTML = `<div class="rf-msg ok">&#10003; Learned: <code>${esc(d.applied)}</code> &mdash; it will weigh on the next verdict.</div>`;
+  }catch(err){
+    box.innerHTML = `<div class="rf-msg err">Could not apply: ${esc(err.message)}</div>`;
+  }
 }
 
 /* ---------- the foreman reads the verdict aloud ($0 browser TTS) ---------- */

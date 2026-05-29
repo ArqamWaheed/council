@@ -119,6 +119,9 @@ python run_council.py --learn "Local Juror | security | 1.5"
 python run_council.py --reflect
 ```
 
+The web UI exposes the same loop: after a verdict, click **"Should the council reweight itself?"** —
+Hermes proposes a rule, you **Approve** or **Dismiss** in the browser.
+
 Either way the rule lands in the skill's `weights` block (and syncs to the installed Hermes copy);
 on the next question of that topic the juror's vote is multiplied accordingly, read back by the
 judge automatically. `--reflect` keeps a **human in the loop** on purpose — a single verdict has no
