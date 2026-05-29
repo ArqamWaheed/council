@@ -86,6 +86,37 @@ def _polarity(position: str) -> str:
     return _POLARITY.get(toks[0].replace("'", ""), "")
 
 
+def _extract_options(question: str) -> list[str]:
+    """Pull the candidate options out of an 'X or Y' / 'X vs Y' decision question.
+
+    Returns the single content word adjacent to the connector on each side
+    (e.g. 'Postgres or Mongo for a new SaaS?' -> ['postgres', 'mongo']). This is
+    deliberately conservative: if it can't find clean options it returns [] and the
+    judge falls back to generic stance clustering.
+    """
+    q = re.sub(r"[?.!]+$", "", question.strip())
+    m = re.search(r"(.+?)\b(?:or|vs\.?|versus)\b(.+)", q, re.IGNORECASE)
+    if not m:
+        return []
+    left = [w for w in _norm(m.group(1)).split() if w not in _STOP and len(w) > 1]
+    right = [w for w in _norm(m.group(2)).split() if w not in _STOP and len(w) > 1]
+    opts = []
+    if left:
+        opts.append(left[-1])   # word just before the connector
+    if right:
+        opts.append(right[0])   # word just after the connector
+    # Only trust this when the two options are distinct.
+    return opts if len(set(opts)) == len(opts) and len(opts) >= 2 else []
+
+
+def _option_of(position: str, options: list[str]) -> str:
+    """Which option a position endorses, by token/substring match. '' if ambiguous."""
+    norm = _norm(position)
+    toks = set(norm.split())
+    hits = [o for o in options if o in toks or o in norm]
+    return hits[0] if len(hits) == 1 else ""
+
+
 def _content_tokens(position: str) -> set[str]:
     return {w for w in _norm(position).split() if len(w) > 1 and w not in _STOP}
 
@@ -112,14 +143,21 @@ def judge(question: str, opinions: list[Opinion]) -> dict:
         return weights.get((op.name.lower(), topic), 1.0)
 
     # Cluster opinions by stance, not by exact string, so "No" and "No, you should not X" merge.
+    # For "X or Y" questions we first map each juror to the option it endorses (robust against
+    # wildly different phrasings like "Postgres" vs "Postgres is the better choice for a SaaS").
+    options = _extract_options(question)
     clusters: list[dict] = []
     for op in opinions:
+        opt = _option_of(op.position, options) if options else ""
         for c in clusters:
-            if _same_stance(op.position, c["rep"]):
+            same = (opt and opt == c.get("opt")) or (
+                not opt and not c.get("opt") and _same_stance(op.position, c["rep"])
+            )
+            if same:
                 c["ops"].append(op)
                 break
         else:
-            clusters.append({"rep": op.position, "ops": [op]})
+            clusters.append({"rep": op.position, "ops": [op], "opt": opt})
 
     for c in clusters:
         c["weight"] = sum(w_of(op) for op in c["ops"])

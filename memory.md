@@ -20,6 +20,10 @@ score + a "why they disagreed" panel. Verdicts are remembered; a skill learns wh
 - Verified live with real models: defaults are `openai/gpt-oss-120b:free` + `z-ai/glm-4.5-air:free`
   (different families, responsive). Free tier is heavily 429-rate-limited; jurors retry w/ backoff
   then fall back to mock. Optional 3rd juror = local Ollama (set OLLAMA_MODEL) — best model-agnostic proof.
+- Stance clustering is option-aware: for "X or Y" questions each juror is mapped to the option it
+  endorses (robust to phrasing); else leading-polarity (yes/no) then fuzzy token overlap. Parser strips
+  markdown + leading labels ("POSITION:") so a stance isn't misread. UI renders **bold** and shows a
+  progress-bar loading screen (asymptotic %, elapsed timer, staged status). Tests: tests/test_judge.py.
 
 ## Key decisions
 - Path B (execute_code-style Python fan-out) over delegate_task subagents: reliable, no

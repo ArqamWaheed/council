@@ -8,7 +8,7 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from jurors import Opinion  # noqa: E402
+from jurors import Opinion, _parse  # noqa: E402
 from run_council import judge  # noqa: E402
 
 
@@ -70,6 +70,38 @@ class TestStanceClustering(unittest.TestCase):
         self.assertFalse(d["unanimous"])
         self.assertEqual(d["split"], "2-1")
         self.assertEqual(d["confidence"], round(2 / 3, 2))
+
+
+class TestParsing(unittest.TestCase):
+    def test_markdown_position_label_is_stripped(self):
+        """Regression: '**POSITION:** Postgres...' must parse to the stance, not 'POSITION'."""
+        pos, _ = _parse("**POSITION:** Postgres is the best choice\n1. acid\n2. mature")
+        self.assertNotEqual(pos.lower(), "position")
+        self.assertTrue(pos.lower().startswith("postgres"))
+
+    def test_markdown_emphasis_stripped_from_reasons(self):
+        _, reasons = _parse("POSITION: PostgreSQL\n1. **Data Integrity**: ACID compliance\n2. `Maturity`: ecosystem")
+        self.assertEqual(reasons[0], "Data Integrity: ACID compliance")
+        self.assertEqual(reasons[1], "Maturity: ecosystem")
+
+    def test_three_postgres_phrasings_are_unanimous(self):
+        """The exact reported bug: 3 jurors all favoring Postgres, varied phrasing -> unanimous."""
+        d = judge("Postgres or Mongo for a new SaaS?", [
+            op("Juror 1", *["Postgres is the better choice for a new SaaS"]),
+            op("Juror 2", *["PostgreSQL"]),
+            op("Local Juror", *["Postgres"]),
+        ])
+        self.assertTrue(d["unanimous"])
+        self.assertEqual(d["dissents"], [])
+
+    def test_option_question_real_split(self):
+        d = judge("Postgres or Mongo for a new SaaS?", [
+            op("Juror 1", *["Postgres is the better choice"]),
+            op("Juror 2", *["Mongo, for flexible documents"]),
+            op("Local Juror", *["Postgres for ACID"]),
+        ])
+        self.assertFalse(d["unanimous"])
+        self.assertEqual(d["split"], "2-1")
 
 
 if __name__ == "__main__":

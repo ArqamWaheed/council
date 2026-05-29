@@ -74,6 +74,26 @@ def roster() -> list[JurorConfig]:
     return jurors
 
 
+def _strip_md(s: str) -> str:
+    """Remove markdown emphasis/code/heading/bullet markers so stances cluster cleanly."""
+    s = re.sub(r"\*\*|__|`+|#+", "", s)
+    s = re.sub(r"^[\s>]*[-*\u2022]\s+", "", s)
+    return s.strip()
+
+
+# Matches a leading stance label, with optional markdown, e.g. "**POSITION:**", "Answer -", "Verdict:"
+_LABEL_RE = re.compile(
+    r"^[\s>*_#-]*(?:position|answer|verdict|stance|recommendation|conclusion)[\s*_]*[:\-\u2014]\s*",
+    re.IGNORECASE,
+)
+_POS_RE = re.compile(
+    r"^[\s>*_#-]*(?:position|answer|verdict|stance|recommendation|conclusion)[\s*_]*[:\-\u2014]\s*(.+)$",
+    re.IGNORECASE,
+)
+_NUM_RE = re.compile(r"^[\s>*_#-]*\d+[.)]\s*(.+)$")
+_BULLET_RE = re.compile(r"^[\s>]*[-*\u2022]\s+(.+)$")
+
+
 def _parse(text: str) -> tuple[str, list[str]]:
     position = ""
     reasons: list[str] = []
@@ -81,26 +101,29 @@ def _parse(text: str) -> tuple[str, list[str]]:
         line = line.strip()
         if not line:
             continue
-        m = re.match(r"(?i)^position[:\-]\s*(.+)$", line)
+        m = _POS_RE.match(line)
         if m and not position:
-            position = m.group(1).strip()
+            position = _strip_md(m.group(1))
             continue
-        m = re.match(r"^\d+[.)]\s*(.+)$", line)
+        m = _NUM_RE.match(line) or _BULLET_RE.match(line)
         if m:
-            reasons.append(m.group(1).strip())
+            reasons.append(_strip_md(m.group(1)))
     if not position:
-        position = text.strip().split("\n", 1)[0]
+        # No explicit label: use the first non-empty line, dropping any stray label prefix.
+        first_line = _strip_md(text.strip().split("\n", 1)[0])
+        position = _LABEL_RE.sub("", first_line)
     return _condense(position), reasons[:3]
 
 
-def _condense(position: str, max_words: int = 12) -> str:
+def _condense(position: str, max_words: int = 14) -> str:
     """Keep stances short: take the first clause/sentence and cap length.
 
     Small models sometimes write a paragraph after 'POSITION:'; a verdict reads better
     (and clusters more reliably) when the stance is concise.
     """
-    position = re.sub(r"\*+", "", position).strip().strip("\"'")
-    first = re.split(r"(?<=[.!?])\s|[\u2014:;\u2013]| - | because | since | as ", position, maxsplit=1)[0]
+    position = _strip_md(position).strip("\"'")
+    position = _LABEL_RE.sub("", position)  # drop any residual "Position:" label
+    first = re.split(r"(?<=[.!?])\s|[\u2014;\u2013]| - | because | since ", position, maxsplit=1)[0]
     first = first.strip().rstrip(".,")
     words = first.split()
     if len(words) > max_words:
