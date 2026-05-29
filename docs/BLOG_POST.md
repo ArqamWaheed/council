@@ -18,7 +18,7 @@ Council takes any judgment call — "Postgres or Mongo?", "is this PR safe to me
 
 {% youtube YOUR_VIDEO_ID %}
 
-**Repo:** https://github.com/YOU/council *(MIT)* · **Live demo:** https://YOUR_DEMO
+**Repo:** https://github.com/ArqamWaheed/council *(MIT)* · **Live demo:** https://YOUR_DEMO
 
 ---
 
@@ -36,14 +36,14 @@ Live: https://YOUR_DEMO — try "Should a 3-person startup use microservices?" a
 Local, one command (runs at $0 in offline mock mode, no key needed):
 
 ```
-git clone https://github.com/YOU/council && cd council && ./setup.sh && python server.py
+git clone https://github.com/ArqamWaheed/council && cd council && ./setup.sh && python server.py
 ```
 
 ---
 
 ## Code
 
-Repo: https://github.com/YOU/council. Interesting files: `run_council.py` (orchestration + the deterministic judge), `skills/council/SKILL.md` (the juror-weighting brain Hermes edits), `index.html` (the designed verdict UI).
+Repo: https://github.com/ArqamWaheed/council. Interesting files: `run_council.py` (orchestration + the deterministic judge), `skills/council/SKILL.md` (the juror-weighting brain Hermes edits), `index.html` (the designed verdict UI).
 
 ```python
 # jurors.py — the fan-out, one model per juror (OpenAI-compatible API)

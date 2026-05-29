@@ -27,7 +27,7 @@ answer, and the disagreement that should have warned you is invisible. Council m
 ## Quickstart (runs at $0, no API key required)
 
 ```bash
-git clone https://github.com/YOU/council && cd council
+git clone https://github.com/ArqamWaheed/council && cd council
 ./setup.sh
 python server.py          # designed web UI -> http://localhost:8000
 ```
