@@ -103,6 +103,28 @@ class TestParsing(unittest.TestCase):
         self.assertFalse(d["unanimous"])
         self.assertEqual(d["split"], "2-1")
 
+    def test_vague_position_uses_reasons_to_pick_option(self):
+        """Regression: a small model's vague position must cluster by its reasons, not split.
+
+        Real case: Local Juror's position had no option keyword but its reason clearly
+        endorsed PostgreSQL ('...compared to ... like MongoDB') — it must NOT count as dissent."""
+        d = judge("Postgres or Mongo for a new SaaS?", [
+            op("Juror 1", "PostgreSQL", "ACID guarantees"),
+            op("Juror 2", "Postgres is the better choice", "mature ecosystem"),
+            op("Local Juror", "To facilitate efficient integration and scalability",
+               "PostgreSQL has proven reliability and security compared to other RDBMSs like MongoDB"),
+        ])
+        self.assertTrue(d["unanimous"])
+        self.assertEqual(d["dissents"], [])
+
+    def test_comparison_mention_not_counted_as_endorsement(self):
+        from run_council import _option_of
+        # Mentions Mongo only as the thing it's better THAN -> endorses Postgres.
+        self.assertEqual(
+            _option_of("", ["postgres", "mongo"],
+                       ["postgres scales better than mongo for relational data"]),
+            "postgres")
+
 
 class TestReflect(unittest.TestCase):
     """The --reflect learning loop: evidence, rule validation, offline suggestion."""

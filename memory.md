@@ -32,9 +32,12 @@ score + a "why they disagreed" panel. Verdicts are remembered; a skill learns wh
   `context_length`); `-z` prints final answer only; key lives in `~/.hermes/.env`.
 - Runs offline in mock mode (no key / no hermes) for a deterministic demo. Free tier is 429-heavy.
 - Stance clustering is option-aware: for "X or Y" questions each juror is mapped to the option it
-  endorses (robust to phrasing); else leading-polarity (yes/no) then fuzzy token overlap. Parser strips
-  markdown + leading labels ("POSITION:") so a stance isn't misread. UI renders **bold** and shows a
-  progress-bar loading screen (asymptotic %, elapsed timer, staged status). Tests: tests/test_judge.py.
+  endorses (robust to phrasing); else leading-polarity (yes/no) then fuzzy token overlap. If a juror's
+  position is vague/option-less, `_option_of` falls back to scanning its REASONS (first-mentioned option
+  wins, skipping comparison contexts like "better than Mongo"/"like Mongo") so an agreeing juror isn't
+  mis-clustered as a dissenter. Parser strips markdown + leading labels ("POSITION:") so a stance isn't
+  misread. UI renders **bold** and shows a progress-bar loading screen (asymptotic %, elapsed timer,
+  staged status). Tests: tests/test_judge.py (18 tests).
 
 ## Key decisions
 - Hermes is the orchestrator for real (Criterion A): one Hermes run per juror on a different model.

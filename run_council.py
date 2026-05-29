@@ -112,12 +112,42 @@ def _extract_options(question: str) -> list[str]:
     return opts if len(set(opts)) == len(opts) and len(opts) >= 2 else []
 
 
-def _option_of(position: str, options: list[str]) -> str:
-    """Which option a position endorses, by token/substring match. '' if ambiguous."""
+_COMPARE_MARKERS = {
+    "than", "over", "vs", "versus", "unlike", "like", "beats", "beat",
+    "not", "without", "outperforms", "outperform",
+}
+
+
+def _first_option(text: str, options: list[str]) -> str:
+    """The option mentioned earliest in `text`, skipping ones used in a comparison
+    ('...better than Mongo', '...other DBs like Mongo' don't count as endorsements)."""
+    best, best_i = "", len(text) + 1
+    for o in options:
+        start = 0
+        while True:
+            i = text.find(o, start)
+            if i < 0:
+                break
+            before = text[:i].split()
+            if not (before and before[-1] in _COMPARE_MARKERS) and i < best_i:
+                best, best_i = o, i
+            start = i + len(o)
+    return best
+
+
+def _option_of(position: str, options: list[str], reasons: list[str] | None = None) -> str:
+    """Which option an opinion endorses. Reads the position first; if that's ambiguous
+    (e.g. a small model wrote a vague position), falls back to the reasons text."""
     norm = _norm(position)
     toks = set(norm.split())
     hits = [o for o in options if o in toks or o in norm]
-    return hits[0] if len(hits) == 1 else ""
+    if len(hits) == 1:
+        return hits[0]
+    if len(hits) > 1:
+        return _first_option(norm, options)
+    if reasons:
+        return _first_option(_norm(" . ".join(reasons)), options)
+    return ""
 
 
 def _content_tokens(position: str) -> set[str]:
@@ -153,7 +183,7 @@ def judge(question: str, opinions: list[Opinion], extra_weights: dict | None = N
     options = _extract_options(question)
     clusters: list[dict] = []
     for op in opinions:
-        opt = _option_of(op.position, options) if options else ""
+        opt = _option_of(op.position, options, op.reasons) if options else ""
         for c in clusters:
             same = (opt and opt == c.get("opt")) or (
                 not opt and not c.get("opt") and _same_stance(op.position, c["rep"])
