@@ -1,0 +1,22 @@
+# Learning loop: `python run_council.py --learn "Local Juror | security | 1.5"`
+
+## Diff of skills/council/SKILL.md (Hermes-editable weighting brain)
+```diff
+--- /tmp/skill_before.md	2026-05-29 22:48:29.153807678 +0500
++++ skills/council/SKILL.md	2026-05-29 22:48:29.311814755 +0500
+@@ -33,6 +33,7 @@
+ Format: `Juror Name | topic | multiplier`. Higher = more trusted for that topic.
+ 
+ ```weights
++Local Juror | security | 1.5
+ ```
+ 
+ ## Learnings log (human-readable; Hermes appends)
+```
+
+## Synced into installed Hermes skill:
+```weights
+Local Juror | security | 1.5
+```
+
+## Learnings log (human-readable; Hermes appends)

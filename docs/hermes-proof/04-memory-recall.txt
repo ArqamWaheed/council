@@ -1,0 +1,9 @@
+# Hermes memory recall
+
+## What Council wrote into Hermes MEMORY.md:
+## Council verdicts
+- [2026-05-29] "Postgres or Mongo for a new SaaS?" → The council is unanimous: Position One, PostgreSQL is renowned for its reliability coupled with ease of use that…. (confidence 1.0, split 3)
+
+## Asking Hermes to recall it (hermes -z, reads its own memory):
+$ hermes -z "Check your memory. What has the council decided about Postgres vs Mongo, with what confidence?"
+The council has ruled in favor of Postgres, with a confidence of 0.67 (a 2‑1 split).

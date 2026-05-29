@@ -1,0 +1,10 @@
+# Hermes environment
+Hermes Agent v0.15.1 (2026.5.29)
+Project: /home/arqamwd/.hermes/hermes-agent
+Python: 3.11.15
+OpenAI SDK: 2.24.0
+Up to date
+
+## Installed council skill
+┃ Name                            ┃ Category             ┃ Source  ┃ Trust   ┃ Status  ┃
+│ council                         │                      │ local   │ local   │ enabled │

@@ -1,0 +1,61 @@
+{
+    "question": "Should a small team choose microservices or a monolith?",
+    "topic": "architecture",
+    "verdict": "By a 2-1 majority, the council favors Monolith \u2014 but the decision is contested (see dissent).",
+    "confidence": 0.67,
+    "split": "2-1",
+    "unanimous": false,
+    "agreements": [
+        "Simpler architecture reduces overhead for a small team.",
+        "Faster development and deployment cycles.",
+        "Faster development and deployment cycles for small teams",
+        "Reduced operational complexity and infrastructure costs"
+    ],
+    "dissents": [
+        "Local Juror argued 'For many, a small team prefers to opt for a microservices model due to\u2026': Scalability: The deployment of a microservices architecture allows teams to scale applications without requiring an overhaul of entire architectures. This is highly beneficial when the existing setup is already quite complex or if one side of the organization lacks sufficient expertise."
+    ],
+    "jurors": [
+        {
+            "name": "Juror 1",
+            "model": "openai/gpt-oss-120b:free",
+            "position": "Monolith",
+            "reasons": [
+                "Simpler architecture reduces overhead for a small team.",
+                "Faster development and deployment cycles.",
+                "Lower operational complexity and cost."
+            ],
+            "weight": 1.0,
+            "mocked": false,
+            "via": "hermes"
+        },
+        {
+            "name": "Juror 2",
+            "model": "z-ai/glm-4.5-air:free",
+            "position": "Monolith",
+            "reasons": [
+                "Faster development and deployment cycles for small teams",
+                "Reduced operational complexity and infrastructure costs",
+                "Easier code navigation and debugging in early-stage projects"
+            ],
+            "weight": 1.0,
+            "mocked": false,
+            "via": "hermes"
+        },
+        {
+            "name": "Local Juror",
+            "model": "qwen2.5:0.5b",
+            "position": "For many, a small team prefers to opt for a microservices model due to\u2026",
+            "reasons": [
+                "Scalability: The deployment of a microservices architecture allows teams to scale applications without requiring an overhaul of entire architectures. This is highly beneficial when the existing setup is already quite complex or if one side of the organization lacks sufficient expertise.",
+                "Flexibility: Microservices design enables each development team to implement its own parts and services independently, which can improve innovation while maintaining a clear sense of control over the application's architecture. This flexibility also enhances maintainability because code changes are distributed more efficiently across modules during release cycles.",
+                "Testability: A microservices architecture allows for better integration with external testing tools (e.g., unit tests and continuous integration services) as each component can be isolated from others, reducing the likelihood of conflicts or bugs introduced by external changes."
+            ],
+            "weight": 1.0,
+            "mocked": false,
+            "via": "hermes"
+        }
+    ],
+    "weighted": false,
+    "timestamp": "2026-05-29T17:52:41.485446+00:00",
+    "foreman": "By a 2\u20111 majority, the council favors a monolith. Dissent was noted."
+}

@@ -15,11 +15,13 @@ Output: a single JSON object (see README for the schema).
 from __future__ import annotations
 
 import json
+import os
 import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+import hermes_run
 from council import memory
 from jurors import Opinion, convene
 
@@ -211,6 +213,7 @@ def judge(question: str, opinions: list[Opinion]) -> dict:
                 "reasons": op.reasons,
                 "weight": weights.get((op.name.lower(), topic), 1.0),
                 "mocked": op.mocked,
+                "via": op.via,
             }
             for op in opinions
         ],
@@ -229,21 +232,70 @@ def _dedupe(items: list[str]) -> list[str]:
     return out
 
 
+def foreman(question: str, verdict: dict) -> str:
+    """Have Hermes (grounded in the council skill) speak the verdict as the foreman.
+
+    Returns a short spoken-style summary, or "" if Hermes isn't available so the
+    deterministic verdict still stands. The structured fields above stay
+    deterministic (and testable); this only adds Hermes' natural-language voice.
+    """
+    if not hermes_run.available():
+        return ""
+    provider = "openrouter" if os.getenv("OPENROUTER_API_KEY", "").strip() else ""
+    if not provider:
+        return ""
+    model = os.getenv("JUDGE_MODEL", "").strip() or os.getenv(
+        "JUROR_1_MODEL", "openai/gpt-oss-120b:free"
+    )
+    lines = "\n".join(
+        f"- {j['name']} ({j['model']}): {j['position']}" for j in verdict["jurors"]
+    )
+    prompt = (
+        "You are the foreman of a decision council. Using the council skill's judging "
+        "rules, read the jurors' positions below and deliver the verdict in 2 short "
+        "sentences a person could read aloud. State the majority decision, the "
+        f"{verdict['split']} split, and that dissent was noted. Be decisive, no preamble.\n\n"
+        f"QUESTION: {question}\nVERDICT: {verdict['verdict']}\nJURORS:\n{lines}"
+    )
+    try:
+        return hermes_run.ask(prompt, provider, model, skills="council").strip()
+    except Exception:
+        return ""
+
+
 def run(question: str) -> dict:
     verdict = judge(question, convene(question))
+    verdict["foreman"] = foreman(question, verdict)
     memory.remember(verdict)
     return verdict
 
 
 def learn(rule: str) -> None:
-    """Append a juror-weighting rule to the skill's ```weights``` block (the learning loop)."""
+    """Append a juror-weighting rule to the skill's ```weights``` block (the learning loop).
+
+    Also mirrors the updated skill into the installed Hermes copy so Hermes and the
+    deterministic judge read the same learned weights.
+    """
     text = SKILL.read_text(encoding="utf-8")
     m = re.search(r"(```weights\s*\n)(.*?)(```)", text, re.DOTALL)
     if not m:
         raise SystemExit("No ```weights``` block found in SKILL.md")
     updated = text[: m.end(2)] + rule.strip() + "\n" + text[m.end(2):]
     SKILL.write_text(updated, encoding="utf-8")
+    _sync_hermes_skill(updated)
     print(f"Learned: {rule}")
+
+
+def _sync_hermes_skill(content: str) -> None:
+    """Best-effort: keep the installed Hermes council skill in sync with the repo skill."""
+    try:
+        home = Path(os.getenv("HERMES_HOME", str(Path.home() / ".hermes")))
+        dest = home / "skills" / "council" / "SKILL.md"
+        if dest.parent.exists() or home.exists():
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_text(content, encoding="utf-8")
+    except Exception:
+        pass
 
 
 def main(argv: list[str]) -> None:

@@ -1,3 +1,15 @@
+---
+name: council
+description: "Use when synthesizing a multi-juror Council verdict: classify the question's topic, weigh each juror per the learned weights block, tally positions, set confidence from agreement, and always surface the dissent."
+version: 1.0.0
+author: Council
+license: MIT
+metadata:
+  hermes:
+    tags: [council, jury, decision, multi-model, verdict, judging]
+    category: autonomous-ai-agents
+---
+
 # Council Skill — how to weigh the jurors
 
 This skill is the council's **judging brain**. Hermes reads it before synthesizing a

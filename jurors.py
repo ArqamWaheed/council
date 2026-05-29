@@ -12,7 +12,10 @@ from __future__ import annotations
 import hashlib
 import os
 import re
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
+
+import hermes_run
 
 try:
     from dotenv import load_dotenv
@@ -29,6 +32,7 @@ class JurorConfig:
     base_url: str = "https://openrouter.ai/api/v1"
     api_key_env: str = "OPENROUTER_API_KEY"
     local: bool = False
+    provider: str = ""          # Hermes provider; empty ⇒ don't route through Hermes
 
 
 @dataclass
@@ -39,6 +43,7 @@ class Opinion:
     reasons: list[str] = field(default_factory=list)
     raw: str = ""
     mocked: bool = False
+    via: str = ""          # orchestrator that produced it: "hermes" | "openrouter" | "mock"
 
 
 PROMPT = (
@@ -50,13 +55,22 @@ PROMPT = (
 
 
 def roster() -> list[JurorConfig]:
-    """Build the juror roster from environment configuration."""
+    """Build the juror roster from environment configuration.
+
+    When a key is present we route the hosted jurors through Hermes' `openrouter`
+    provider; the local juror routes through a named Hermes custom provider
+    (default `ollama-local`) so a hosted and an on-device model run through the
+    *same* model-agnostic interface — Council's whole bet.
+    """
+    have_key = bool(os.getenv("OPENROUTER_API_KEY", "").strip())
+    hosted_provider = "openrouter" if have_key else ""
     jurors = [
-        JurorConfig("Juror 1", os.getenv("JUROR_1_MODEL", "openai/gpt-oss-120b:free")),
-        JurorConfig("Juror 2", os.getenv("JUROR_2_MODEL", "z-ai/glm-4.5-air:free")),
+        JurorConfig("Juror 1", os.getenv("JUROR_1_MODEL", "openai/gpt-oss-120b:free"),
+                    provider=hosted_provider),
+        JurorConfig("Juror 2", os.getenv("JUROR_2_MODEL", "z-ai/glm-4.5-air:free"),
+                    provider=hosted_provider),
     ]
     ollama_model = os.getenv("OLLAMA_MODEL", "").strip()
-    have_key = bool(os.getenv("OPENROUTER_API_KEY", "").strip())
     if ollama_model:
         jurors.append(
             JurorConfig(
@@ -65,6 +79,7 @@ def roster() -> list[JurorConfig]:
                 base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1"),
                 api_key_env="",
                 local=True,
+                provider=os.getenv("HERMES_OLLAMA_PROVIDER", "ollama-local"),
             )
         )
     elif not have_key:
@@ -178,7 +193,7 @@ def _mock(cfg: JurorConfig, question: str, n: int) -> Opinion:
     ]
     reasons = [reason_bank[(seed >> (i * 3)) % len(reason_bank)] for i in range(3)]
     raw = f"POSITION: {position}\n" + "\n".join(f"{i+1}. {r}" for i, r in enumerate(reasons))
-    return Opinion(cfg.name, cfg.model + " (mock)", position, reasons, raw=raw, mocked=True)
+    return Opinion(cfg.name, cfg.model + " (mock)", position, reasons, raw=raw, mocked=True, via="mock")
 
 
 def _extract_options(question: str) -> list[str]:
@@ -199,20 +214,42 @@ def _short(text: str, n: int = 60) -> str:
 
 
 def ask_juror(cfg: JurorConfig, question: str, n: int) -> Opinion:
+    prompt = PROMPT.format(n=n, q=question)
+    fallback_note = ""
+    # Preferred path: Hermes orchestrates the inference (model-agnostic, hosted or local).
+    if cfg.provider and hermes_run.available():
+        try:
+            text = hermes_run.ask(prompt, cfg.provider, cfg.model)
+            position, reasons = _parse(text)
+            return Opinion(cfg.name, cfg.model, position, reasons, raw=text, via="hermes")
+        except Exception as exc:  # Hermes unavailable/rate-limited -> direct or mock
+            fallback_note = f"[hermes failed, fell back: {exc}]\n"
+
     have_key = bool(os.getenv("OPENROUTER_API_KEY", "").strip())
     if cfg.local or have_key:
         try:
-            return _ask_real(cfg, question, n)
+            op = _ask_real(cfg, question, n)
+            op.via = "openrouter"
+            op.raw = fallback_note + op.raw
+            return op
         except Exception as exc:  # network/credentials/model errors -> graceful mock
             op = _mock(cfg, question, n)
-            op.raw = f"[fell back to mock: {exc}]\n" + op.raw
+            op.raw = f"{fallback_note}[fell back to mock: {exc}]\n" + op.raw
             return op
-    return _mock(cfg, question, n)
+    op = _mock(cfg, question, n)
+    op.raw = fallback_note + op.raw
+    return op
 
 
 def convene(question: str) -> list[Opinion]:
-    """Fan out the question to every juror and collect their opinions."""
-    return [ask_juror(cfg, question, i + 1) for i, cfg in enumerate(roster())]
+    """Fan out the question to every juror (in parallel) and collect their opinions.
+
+    Each juror is an independent Hermes run, so they execute concurrently — genuine
+    parallel delegation rather than a serial loop.
+    """
+    jurors = roster()
+    with ThreadPoolExecutor(max_workers=len(jurors) or 1) as pool:
+        return list(pool.map(lambda ic: ask_juror(ic[1], question, ic[0] + 1), enumerate(jurors)))
 
 
 if __name__ == "__main__":

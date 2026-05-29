@@ -1,0 +1,29 @@
+QUESTION: Should a 3-person startup use Postgres or Mongo?
+
+========================================================================
+Juror 1  | orchestrator: via=hermes | model: openai/gpt-oss-120b:free
+------------------------------------------------------------------------
+POSITION: Postgres
+
+1. Guarantees ACID transactions, ensuring data integrity for core business operations.  
+2. Supports powerful relational queries and joins, reducing application‑side complexity.  
+3. Mature ecosystem with extensive tooling and community support, lowering operational overhead for a small team.
+
+========================================================================
+Juror 2  | orchestrator: via=hermes | model: z-ai/glm-4.5-air:free
+------------------------------------------------------------------------
+POSITION: PostgreSQL
+
+1. Data integrity is non-negotiable for early-stage businesses that can't afford data loss
+2. PostgreSQL's JSON support provides flexibility while maintaining relational reliability  
+3. Better ecosystem with more mature tooling and community support for small teams
+
+========================================================================
+Local Juror  | orchestrator: via=hermes | model: qwen2.5:0.5b
+------------------------------------------------------------------------
+POSITION: **POSTGRES** will maintain consistency, scalability, and reliability across all the project's databases.
+
+**REASON 1:** Postgres inherently supports distributed transactions and query processing on large scale datasets, which is paramount for most startups as they handle high volumes of transactional data with a team size of five or more. By sticking to PostgreSQL, businesses can effectively manage these intricate systems while ensuring their applications run smoothly under load.
+
+**REASON 2:** Postgres' feature set is robust enough to house essential relational structures such as tables, relationships defined by fields, constraints, indexes and foreign key data types, enhancing its suitability for complex enterprise-level database scenarios. This means it can comfortably manage not just individual transactions or their data streams but also large-scale collaborative applicatio
+
