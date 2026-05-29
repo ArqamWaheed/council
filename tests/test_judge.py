@@ -104,5 +104,47 @@ class TestParsing(unittest.TestCase):
         self.assertEqual(d["split"], "2-1")
 
 
+class TestReflect(unittest.TestCase):
+    """The --reflect learning loop: evidence, rule validation, offline suggestion."""
+
+    def _records(self):
+        return [
+            {"topic": "database", "split": "2-1", "verdict": "favors Postgres",
+             "dissents": ["Local Juror argued 'Mongo': flexible", "x"],
+             "jurors": [{"name": "Juror 1"}, {"name": "Juror 2"}, {"name": "Local Juror"}]},
+            {"topic": "database", "split": "2-1", "verdict": "favors Postgres",
+             "dissents": ["Local Juror argued 'Mongo': scale"],
+             "jurors": [{"name": "Juror 1"}, {"name": "Juror 2"}, {"name": "Local Juror"}]},
+        ]
+
+    def test_evidence_tally_counts_dissents(self):
+        from run_council import reflection_evidence
+        lines, tally = reflection_evidence(self._records())
+        self.assertEqual(len(lines), 2)
+        self.assertEqual(tally[("local juror", "database")], [2, 2])
+        self.assertEqual(tally[("juror 1", "database")], [0, 2])
+
+    def test_valid_rule_accepts_and_rejects(self):
+        from run_council import _valid_rule
+        self.assertEqual(_valid_rule("Local Juror | security | 1.5"),
+                         "Local Juror | security | 1.5")
+        self.assertEqual(_valid_rule("Nobody | security | 1.5"), "")   # unknown juror
+        self.assertEqual(_valid_rule("Local Juror | cooking | 1.5"), "")  # unknown topic
+        self.assertEqual(_valid_rule("Local Juror | security | 1.0"), "")  # no-op weight
+        self.assertEqual(_valid_rule("Local Juror | security | 99"), "")   # out of range
+
+    def test_offline_suggestion_targets_repeat_dissenter(self):
+        os.environ["HERMES_ORCHESTRATION"] = "0"   # force the deterministic path
+        from run_council import suggest_weight
+        s = suggest_weight(self._records())
+        self.assertIsNotNone(s)
+        self.assertEqual(s["via"], "offline-heuristic")
+        self.assertTrue(s["rule"].lower().startswith("local juror | database |"))
+
+    def test_no_suggestion_without_enough_history(self):
+        from run_council import suggest_weight
+        self.assertIsNone(suggest_weight(self._records()[:1]))
+
+
 if __name__ == "__main__":
     unittest.main()

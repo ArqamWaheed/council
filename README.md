@@ -109,12 +109,22 @@ See [`docs/hermes-proof/`](docs/hermes-proof/) for transcripts proving Hermes is
 
 ### The learning loop
 
+Two ways to teach the council who to trust:
+
 ```bash
+# 1. Manual — append a weighting rule yourself
 python run_council.py --learn "Local Juror | security | 1.5"
+
+# 2. Agentic — Hermes reviews its own memory and proposes a rule; you approve
+python run_council.py --reflect
 ```
 
-This appends a rule to the skill's `weights` block; on the next security question that juror's
-vote counts 1.5×. The weighting is read back by the judge automatically.
+Either way the rule lands in the skill's `weights` block (and syncs to the installed Hermes copy);
+on the next question of that topic the juror's vote is multiplied accordingly, read back by the
+judge automatically. `--reflect` keeps a **human in the loop** on purpose — a single verdict has no
+ground truth, so the council *proposes* a weighting from a repeated pattern (e.g. a juror whose
+dissent keeps proving worth hearing) and waits for your `y`. Offline, it falls back to a
+deterministic heuristic so it still works with no key.
 
 ### Verdict JSON schema
 

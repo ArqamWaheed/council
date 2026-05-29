@@ -8,6 +8,7 @@ council skill. The verdict is stored in memory.
 Usage:
     python run_council.py "Postgres or Mongo for a new SaaS?"
     python run_council.py --learn "Local Juror | security | 1.5"   # append a weighting rule
+    python run_council.py --reflect                                # Hermes proposes a rule (you approve)
     python run_council.py --history [query]                         # recall past verdicts
 
 Output: a single JSON object (see README for the schema).
@@ -23,7 +24,7 @@ from pathlib import Path
 
 import hermes_run
 from council import memory
-from jurors import Opinion, convene
+from jurors import Opinion, convene, roster
 
 SKILL = Path(__file__).resolve().parent / "skills" / "council" / "SKILL.md"
 
@@ -298,9 +299,154 @@ def _sync_hermes_skill(content: str) -> None:
         pass
 
 
+def _dissenter_names(record: dict) -> set[str]:
+    """Pull the dissenting jurors' names out of a stored verdict's `dissents` lines."""
+    names = set()
+    for line in record.get("dissents", []):
+        m = re.match(r"\s*(.+?) argued ", line)
+        if m:
+            names.add(m.group(1).strip().lower())
+    return names
+
+
+def reflection_evidence(records: list[dict]):
+    """Summarize verdicts into (human-readable lines, per (juror, topic) dissent tally).
+
+    tally[(juror_lower, topic)] = [times_dissented, times_appeared]. This is the raw
+    signal both Hermes and the offline fallback reason over — kept pure so it's testable.
+    """
+    lines, tally = [], {}
+    for r in records:
+        topic = r.get("topic", "general")
+        dissenters = _dissenter_names(r)
+        for j in r.get("jurors", []):
+            key = (j.get("name", "").lower(), topic)
+            t = tally.setdefault(key, [0, 0])
+            t[1] += 1
+            if j.get("name", "").lower() in dissenters:
+                t[0] += 1
+        lines.append(
+            f"- [{topic}] split {r.get('split')}: {(r.get('verdict') or '')[:90]} "
+            f"(dissented: {', '.join(sorted(dissenters)) or 'none'})"
+        )
+    return lines, tally
+
+
+def _valid_rule(rule: str) -> str:
+    """Return a normalized 'Juror | topic | multiplier' rule, or '' if it's not sane."""
+    parts = [p.strip() for p in rule.split("|")]
+    if len(parts) != 3:
+        return ""
+    name, topic, mult = parts
+    names = {c.name.lower() for c in roster()}
+    if name.lower() not in names:
+        return ""
+    if topic.lower() not in set(TOPICS) | {"general"}:
+        return ""
+    try:
+        m = float(mult)
+    except ValueError:
+        return ""
+    if not 0.25 <= m <= 3.0 or m == 1.0:
+        return ""
+    return f"{name} | {topic.lower()} | {m:g}"
+
+
+def _fallback_suggestion(tally: dict):
+    """Deterministic proposal when Hermes is unavailable: upweight the juror that has
+    repeatedly dissented on one topic (it may be catching what the majority misses)."""
+    best, best_d = None, 1
+    for (name, topic), (dissents, _appeared) in tally.items():
+        if dissents > best_d:
+            best, best_d = (name, topic), dissents
+    if not best:
+        return None
+    name, topic = best
+    display = next((c.name for c in roster() if c.name.lower() == name), name)
+    rule = _valid_rule(f"{display} | {topic} | 1.25")
+    if not rule:
+        return None
+    return {
+        "rule": rule,
+        "why": (f"{display} dissented {best_d}× on '{topic}' questions — a persistent minority "
+                f"view worth surfacing more. Upweight to 1.25 (you decide if that's signal)."),
+        "via": "offline-heuristic",
+    }
+
+
+def _hermes_suggestion(lines: list[str]):
+    """Ask Hermes (grounded in the council skill) to propose ONE weight rule, or None."""
+    if not hermes_run.available():
+        return None
+    provider = "openrouter" if os.getenv("OPENROUTER_API_KEY", "").strip() else ""
+    if not provider:
+        return None
+    model = os.getenv("JUDGE_MODEL", "").strip() or os.getenv(
+        "JUROR_1_MODEL", "openai/gpt-oss-120b:free"
+    )
+    jurors = ", ".join(c.name for c in roster())
+    topics = ", ".join(sorted(set(TOPICS) | {"general"}))
+    prompt = (
+        "You are the council foreman reviewing your own memory to improve future judging. "
+        "Below are recent verdicts. Decide whether ONE juror has earned a changed weight on "
+        "ONE topic — e.g. a juror whose dissent keeps proving worth hearing should be upweighted. "
+        "Be conservative: only suggest a change with a real, repeated pattern.\n\n"
+        f"JURORS: {jurors}\nTOPICS: {topics}\n\nRECENT VERDICTS:\n" + "\n".join(lines) +
+        "\n\nReply with EXACTLY one line, nothing else, in one of these two forms:\n"
+        "RULE: <Juror> | <topic> | <multiplier between 0.25 and 3.0>\n"
+        "NO_CHANGE: <one-line reason>"
+    )
+    try:
+        out = hermes_run.ask(prompt, provider, model, skills="council").strip()
+    except Exception:
+        return None
+    m = re.search(r"RULE:\s*(.+)", out)
+    if not m:
+        return None
+    rule = _valid_rule(m.group(1))
+    if not rule:
+        return None
+    return {"rule": rule, "why": "Hermes reviewed recent verdicts and proposed this rule.",
+            "via": "hermes"}
+
+
+def suggest_weight(records: list[dict] | None = None):
+    """Propose a single weight rule from recent verdicts (Hermes first, then offline)."""
+    if records is None:
+        records = memory.recall(None, limit=25)
+    if len(records) < 2:
+        return None
+    lines, tally = reflection_evidence(records)
+    return _hermes_suggestion(lines) or _fallback_suggestion(tally)
+
+
+def reflect(auto_approve: bool = False, prompt_fn=input) -> None:
+    """Have the council reflect on its memory and propose a weighting you approve."""
+    suggestion = suggest_weight()
+    if not suggestion:
+        print("Not enough signal yet — run a few more verdicts (need a repeated pattern).")
+        return
+    print(f"\nProposed weighting ({suggestion['via']}):\n  {suggestion['rule']}")
+    print(f"  Why: {suggestion['why']}\n")
+    if auto_approve:
+        learn(suggestion["rule"])
+        return
+    try:
+        answer = prompt_fn("Apply this weighting? [y/N] ").strip().lower()
+    except EOFError:
+        answer = ""
+    if answer in ("y", "yes"):
+        learn(suggestion["rule"])
+    else:
+        print("Skipped — no change made.")
+
+
 def main(argv: list[str]) -> None:
     if argv and argv[0] == "--learn":
         learn(" ".join(argv[1:]))
+        return
+    if argv and argv[0] == "--reflect":
+        reflect(auto_approve="--yes" in argv[1:])
         return
     if argv and argv[0] == "--history":
         print(json.dumps(memory.recall(" ".join(argv[1:]) or None), indent=2))

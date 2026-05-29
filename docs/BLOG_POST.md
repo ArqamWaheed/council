@@ -74,6 +74,8 @@ python run_council.py --learn "Local Juror | security | 1.5"
 
 On the next security question that juror's vote counts 1.5×, read straight back by the judge. Counterfactual: a static synthesis prompt can't get better; this does. (The before/after skill diff is in [`docs/hermes-proof/03-skill-learning.txt`](https://github.com/ArqamWaheed/council/blob/main/docs/hermes-proof/03-skill-learning.txt).)
 
+**Letting the agent propose its own learning.** `python run_council.py --reflect` hands Hermes its *own* memory of past verdicts and asks it to propose one weight change — e.g. "the local juror has dissented on three database calls; upweight it." Hermes reasons over the history and suggests a rule; I approve it with a `y`. That's the agentic loop done honestly: a single verdict has no ground truth, so the agent surfaces a *pattern* and a human confirms it's signal, not overfitting — the exact tension this post closes on. (Offline, it falls back to a deterministic heuristic so it never breaks.)
+
 **Why memory.** Each verdict is appended to a log *and mirrored into Hermes' own `MEMORY.md`*, so I can ask `hermes -z "what did the council decide about auth?"` and Hermes recalls it from its memory — not from my code. Proof: [`docs/hermes-proof/04-memory-recall.txt`](https://github.com/ArqamWaheed/council/blob/main/docs/hermes-proof/04-memory-recall.txt).
 
 **The foreman reads the verdict aloud.** The verdict card has a "the foreman reads the verdict" button (browser SpeechSynthesis, $0); Hermes also ships native TTS via `hermes setup tts`. On-theme and memorable — a jury foreman *announcing* the decision.

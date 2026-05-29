@@ -39,6 +39,9 @@ score + a "why they disagreed" panel. Verdicts are remembered; a skill learns wh
 ## Key decisions
 - Hermes is the orchestrator for real (Criterion A): one Hermes run per juror on a different model.
   Direct API + mock remain as graceful fallbacks (toggle with `HERMES_ORCHESTRATION=0`).
+- Learning loop has two paths: `--learn "Juror | topic | mult"` (manual) and `--reflect` (agentic:
+  Hermes reviews its own verdict memory, proposes ONE weight rule, human approves; offline =
+  deterministic heuristic over repeated dissents). Rules validated (known juror/topic, 0.25–3.0, ≠1.0).
 - Confidence = agreement among jurors (high when aligned, low on a 2-1 split).
 - Mock fallback so `setup.sh` → demo works with zero credentials.
 - Max 3 jurors in the demo (clarity + latency + cost).
