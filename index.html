@@ -6,30 +6,34 @@
 <title>Council — Convene the Jury</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,900;1,9..144,500&family=Newsreader:ital,opsz@0,6..72;1,6..72&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,900&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
 <style>
   :root{
     --ink:#16130f;
     --ink-2:#1f1b15;
-    --parch:#efe7d6;
-    --parch-dim:#cdc2ab;
+    --parch:#f4ecdd;
+    --parch-2:#ded3bc;
+    --parch-dim:#b6ab93;
     --oxblood:#8c2b27;
-    --oxblood-bright:#c0413b;
-    --brass:#c79a45;
+    --oxblood-bright:#d2554d;
+    --brass:#cda54e;
     --brass-bright:#e7c477;
-    --j1:#5a8f8b;   /* sea-slate  */
-    --j2:#b9743f;   /* terracotta */
-    --j3:#7d6aa8;   /* aubergine  */
-    --green:#6c9c5a;
-    --amber:#caa14a;
-    --red:#bb4a3f;
+    --j1:#6fb0aa;   /* sea-slate  */
+    --j2:#d08a4e;   /* terracotta */
+    --j3:#9784c4;   /* aubergine  */
+    --green:#7fb463;
+    --amber:#d6ad55;
+    --red:#cf584b;
     --line:rgba(199,154,69,.28);
+    --display:"Fraunces",Georgia,serif;
+    --sans:"IBM Plex Sans",system-ui,-apple-system,Segoe UI,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,monospace;
   }
   *{box-sizing:border-box}
   html{scroll-behavior:smooth}
   body{
     margin:0;min-height:100vh;color:var(--parch);
-    font-family:"Newsreader",Georgia,serif;font-size:18px;line-height:1.55;
+    font-family:var(--sans);font-size:17px;line-height:1.6;-webkit-font-smoothing:antialiased;
     background:
       radial-gradient(1200px 600px at 80% -10%, rgba(140,43,39,.20), transparent 60%),
       radial-gradient(900px 500px at -10% 110%, rgba(199,154,69,.12), transparent 55%),
@@ -44,23 +48,23 @@
 
   /* ---------- masthead ---------- */
   header{border-bottom:2px solid var(--line);padding-bottom:22px;margin-bottom:34px}
-  .kicker{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.42em;
+  .kicker{font-family:var(--mono);font-size:11px;letter-spacing:.42em;
     text-transform:uppercase;color:var(--brass);display:flex;gap:14px;align-items:center}
   .kicker::after{content:"";flex:1;height:1px;background:var(--line)}
-  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(46px,9vw,108px);
+  h1{font-family:var(--display);font-weight:900;font-size:clamp(46px,9vw,108px);
     line-height:.92;margin:.18em 0 .1em;letter-spacing:-.02em;color:var(--parch)}
   h1 .amp{color:var(--oxblood-bright);font-style:italic;font-weight:500}
-  .dek{font-style:italic;font-size:clamp(18px,2.4vw,23px);color:var(--parch-dim);max-width:46ch}
+  .dek{font-size:clamp(17px,2.1vw,21px);color:var(--parch-2);max-width:50ch;line-height:1.5}
 
   /* ---------- ask ---------- */
   .ask{margin:38px 0 12px;display:flex;flex-direction:column;gap:14px}
-  label.q{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.28em;
+  label.q{font-family:var(--mono);font-size:11px;letter-spacing:.28em;
     text-transform:uppercase;color:var(--parch-dim)}
   .field{display:flex;gap:12px;flex-wrap:wrap}
   textarea{
     flex:1;min-width:260px;min-height:64px;resize:vertical;
     background:var(--ink-2);color:var(--parch);border:1px solid var(--line);
-    border-radius:3px;padding:16px 18px;font-family:"Newsreader",serif;font-size:19px;
+    border-radius:3px;padding:16px 18px;font-family:var(--sans);font-size:19px;
     transition:border-color .25s, box-shadow .25s;
   }
   textarea:focus{outline:none;border-color:var(--brass);
@@ -68,7 +72,7 @@
   button.convene{
     background:linear-gradient(180deg,var(--oxblood-bright),var(--oxblood));
     color:#f7eede;border:none;border-radius:3px;cursor:pointer;
-    font-family:"JetBrains Mono",monospace;font-weight:700;font-size:13px;
+    font-family:var(--mono);font-weight:700;font-size:13px;
     letter-spacing:.18em;text-transform:uppercase;padding:0 26px;min-height:64px;
     box-shadow:0 6px 0 #5e1c19, 0 10px 22px rgba(0,0,0,.45);
     transition:transform .08s ease, box-shadow .08s ease;align-self:stretch;
@@ -78,14 +82,14 @@
   button.convene:disabled{opacity:.55;cursor:wait}
   .chips-suggest{display:flex;flex-wrap:wrap;gap:8px;margin-top:2px}
   .chips-suggest button{
-    background:transparent;border:1px dashed var(--line);color:var(--parch-dim);
-    border-radius:999px;padding:5px 13px;cursor:pointer;font-family:"Newsreader",serif;
-    font-style:italic;font-size:14px;transition:.2s}
+    background:transparent;border:1px dashed var(--line);color:var(--parch-2);
+    border-radius:999px;padding:6px 14px;cursor:pointer;font-family:var(--sans);
+    font-size:14px;transition:.2s}
   .chips-suggest button:hover{border-color:var(--brass);color:var(--brass-bright)}
 
   /* ---------- verdict ---------- */
   #stage{margin-top:40px}
-  .gavel{display:none;text-align:center;font-family:"JetBrains Mono",monospace;
+  .gavel{display:none;text-align:center;font-family:var(--mono);
     letter-spacing:.3em;color:var(--brass);text-transform:uppercase;font-size:12px}
   .gavel.show{display:block;animation:rap .5s ease}
   @keyframes rap{0%{transform:rotate(-14deg) translateY(-8px);opacity:0}
@@ -102,11 +106,11 @@
   .vc-top{display:grid;grid-template-columns:1fr auto;gap:24px;align-items:center;
     padding:30px 32px;border-bottom:1px solid var(--line);
     background:radial-gradient(600px 200px at 0% 0%,rgba(140,43,39,.18),transparent)}
-  .vc-label{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.34em;
+  .vc-label{font-family:var(--mono);font-size:11px;letter-spacing:.34em;
     text-transform:uppercase;color:var(--brass)}
-  .vc-verdict{font-family:"Fraunces",serif;font-weight:600;font-size:clamp(24px,4vw,38px);
-    line-height:1.15;margin:.25em 0 0;color:var(--parch)}
-  .vc-topic{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--parch-dim);
+  .vc-verdict{font-family:var(--sans);font-weight:600;font-size:clamp(23px,3.4vw,34px);
+    line-height:1.22;margin:.25em 0 0;color:var(--parch);letter-spacing:-.01em}
+  .vc-topic{font-family:var(--mono);font-size:11px;color:var(--parch-dim);
     margin-top:10px;letter-spacing:.12em}
 
   /* dial */
@@ -114,10 +118,10 @@
   .dial svg{transform:rotate(-90deg)}
   .dial .num{position:absolute;inset:0;display:flex;flex-direction:column;
     align-items:center;justify-content:center}
-  .dial .pct{font-family:"Fraunces",serif;font-weight:900;font-size:34px;line-height:1}
-  .dial .cap{font-family:"JetBrains Mono",monospace;font-size:9px;letter-spacing:.2em;
+  .dial .pct{font-family:var(--sans);font-weight:700;font-size:34px;line-height:1;letter-spacing:-.02em}
+  .dial .cap{font-family:var(--mono);font-size:9px;letter-spacing:.2em;
     text-transform:uppercase;color:var(--parch-dim);margin-top:4px}
-  .split-pill{font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.1em;
+  .split-pill{font-family:var(--mono);font-size:12px;letter-spacing:.1em;
     margin-top:8px;color:var(--parch);border:1px solid var(--line);border-radius:999px;
     padding:2px 10px;display:inline-block}
 
@@ -128,14 +132,14 @@
   .juror:last-child{border-right:none}
   .juror .top{display:flex;align-items:center;gap:9px;margin-bottom:10px}
   .dot{width:11px;height:11px;border-radius:50%;flex:none;box-shadow:0 0 12px currentColor}
-  .juror .name{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.2em;
+  .juror .name{font-family:var(--mono);font-size:11px;letter-spacing:.2em;
     text-transform:uppercase}
-  .juror .model{font-family:"JetBrains Mono",monospace;font-size:10px;color:var(--parch-dim);
+  .juror .model{font-family:var(--mono);font-size:10px;color:var(--parch-dim);
     word-break:break-all;margin-bottom:12px;opacity:.8}
-  .juror .pos{font-family:"Fraunces",serif;font-weight:600;font-size:23px;margin-bottom:10px}
+  .juror .pos{font-family:var(--sans);font-weight:700;font-size:21px;margin-bottom:10px;letter-spacing:-.01em}
   .juror ul{margin:0;padding-left:18px}
-  .juror li{font-size:15px;color:var(--parch-dim);margin-bottom:5px;line-height:1.4}
-  .wbadge{position:absolute;top:18px;right:18px;font-family:"JetBrains Mono",monospace;
+  .juror li{font-size:15px;color:var(--parch-2);margin-bottom:6px;line-height:1.5}
+  .wbadge{position:absolute;top:18px;right:18px;font-family:var(--mono);
     font-size:10px;color:var(--brass);border:1px solid var(--line);border-radius:3px;
     padding:1px 6px}
 
@@ -143,7 +147,7 @@
   .panel{border-top:1px solid transparent}
   details{padding:0 32px}
   summary{cursor:pointer;list-style:none;padding:20px 0;display:flex;align-items:center;
-    gap:12px;font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.18em;
+    gap:12px;font-family:var(--mono);font-size:12px;letter-spacing:.18em;
     text-transform:uppercase;color:var(--oxblood-bright)}
   summary::-webkit-details-marker{display:none}
   summary .tri{transition:transform .25s}
@@ -152,18 +156,18 @@
   .dissent-body .row{border-left:2px solid var(--oxblood);padding:6px 0 6px 16px;
     margin-bottom:12px;color:var(--parch);font-style:italic}
   .agree{padding:4px 0 26px}
-  .agree h4,.dissent-body h4{font-family:"JetBrains Mono",monospace;font-size:11px;
+  .agree h4,.dissent-body h4{font-family:var(--mono);font-size:11px;
     letter-spacing:.24em;text-transform:uppercase;color:var(--parch-dim);margin:0 0 10px}
   .agree li{color:var(--parch-dim)}
 
   .empty{color:var(--parch-dim);font-style:italic;text-align:center;padding:60px 20px}
-  .err{color:var(--oxblood-bright);font-family:"JetBrains Mono",monospace;font-size:14px}
-  .mock-note{font-family:"JetBrains Mono",monospace;font-size:10px;color:var(--brass);
+  .err{color:var(--oxblood-bright);font-family:var(--mono);font-size:14px}
+  .mock-note{font-family:var(--mono);font-size:10px;color:var(--brass);
     text-align:center;padding:14px;letter-spacing:.1em;border-top:1px solid var(--line)}
 
   footer{margin-top:54px;border-top:1px solid var(--line);padding-top:18px;
     display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;
-    font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--parch-dim);
+    font-family:var(--mono);font-size:11px;color:var(--parch-dim);
     letter-spacing:.14em}
   footer a{color:var(--brass)}
   .spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(247,238,222,.4);
