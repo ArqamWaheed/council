@@ -52,8 +52,8 @@ PROMPT = (
 def roster() -> list[JurorConfig]:
     """Build the juror roster from environment configuration."""
     jurors = [
-        JurorConfig("Juror 1", os.getenv("JUROR_1_MODEL", "meta-llama/llama-3.3-70b-instruct:free")),
-        JurorConfig("Juror 2", os.getenv("JUROR_2_MODEL", "deepseek/deepseek-chat-v3-0324:free")),
+        JurorConfig("Juror 1", os.getenv("JUROR_1_MODEL", "openai/gpt-oss-120b:free")),
+        JurorConfig("Juror 2", os.getenv("JUROR_2_MODEL", "z-ai/glm-4.5-air:free")),
     ]
     ollama_model = os.getenv("OLLAMA_MODEL", "").strip()
     have_key = bool(os.getenv("OPENROUTER_API_KEY", "").strip())
@@ -93,19 +93,31 @@ def _parse(text: str) -> tuple[str, list[str]]:
     return position, reasons[:3]
 
 
-def _ask_real(cfg: JurorConfig, question: str, n: int) -> Opinion:
+def _ask_real(cfg: JurorConfig, question: str, n: int, retries: int = 2) -> Opinion:
+    import time
+
     from openai import OpenAI
 
     api_key = os.getenv(cfg.api_key_env, "") if cfg.api_key_env else "ollama"
     client = OpenAI(base_url=cfg.base_url, api_key=api_key or "ollama")
-    resp = client.chat.completions.create(
-        model=cfg.model,
-        messages=[{"role": "user", "content": PROMPT.format(n=n, q=question)}],
-        temperature=0.7,
-    )
-    text = resp.choices[0].message.content or ""
-    position, reasons = _parse(text)
-    return Opinion(cfg.name, cfg.model, position, reasons, raw=text)
+    last_exc: Exception | None = None
+    for attempt in range(retries + 1):
+        try:
+            resp = client.chat.completions.create(
+                model=cfg.model,
+                messages=[{"role": "user", "content": PROMPT.format(n=n, q=question)}],
+                temperature=0.7,
+            )
+            text = resp.choices[0].message.content or ""
+            position, reasons = _parse(text)
+            return Opinion(cfg.name, cfg.model, position, reasons, raw=text)
+        except Exception as exc:  # retry transient upstream rate limits (429)
+            last_exc = exc
+            if "429" in str(exc) and attempt < retries:
+                time.sleep(2 * (attempt + 1))
+                continue
+            raise
+    raise last_exc  # pragma: no cover
 
 
 # --- Mock juror (offline mode) -------------------------------------------------
