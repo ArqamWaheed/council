@@ -17,7 +17,6 @@ from __future__ import annotations
 import json
 import re
 import sys
-from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -61,33 +60,83 @@ def load_weights() -> dict[tuple[str, str], float]:
 
 
 def _norm(position: str) -> str:
-    return re.sub(r"[^a-z0-9 ]", "", position.lower()).strip()
+    return re.sub(r"[^a-z0-9 ]", " ", position.lower()).strip()
+
+
+_STOP = {
+    "the", "a", "an", "to", "you", "your", "should", "would", "is", "are", "of", "for",
+    "it", "be", "this", "that", "do", "does", "with", "and", "or", "in", "on", "we",
+    "i", "use", "using", "go", "going", "not", "no", "yes",
+}
+
+# Leading polarity word -> stance bucket. Lets "No" and "No, you should not X" cluster together.
+_POLARITY = {
+    "no": "neg", "nope": "neg", "never": "neg", "dont": "neg", "avoid": "neg",
+    "shouldnt": "neg", "disagree": "neg", "against": "neg", "false": "neg", "cannot": "neg",
+    "yes": "pos", "yep": "pos", "agree": "pos", "definitely": "pos", "absolutely": "pos",
+    "sure": "pos", "true": "pos",
+}
+
+
+def _polarity(position: str) -> str:
+    """Stance from the leading word only (so mid-string 'no-code' doesn't read as negative)."""
+    toks = re.findall(r"[a-z']+", position.lower())
+    if not toks:
+        return ""
+    return _POLARITY.get(toks[0].replace("'", ""), "")
+
+
+def _content_tokens(position: str) -> set[str]:
+    return {w for w in _norm(position).split() if len(w) > 1 and w not in _STOP}
+
+
+def _same_stance(a: str, b: str) -> bool:
+    """True if two position strings express the same stance."""
+    pa, pb = _polarity(a), _polarity(b)
+    if pa and pb:
+        return pa == pb
+    na, nb = _norm(a), _norm(b)
+    if na and nb and (na in nb or nb in na):
+        return True
+    ta, tb = _content_tokens(a), _content_tokens(b)
+    if ta and tb:
+        return len(ta & tb) / len(ta | tb) >= 0.5
+    return na == nb
 
 
 def judge(question: str, opinions: list[Opinion]) -> dict:
     topic = classify(question)
     weights = load_weights()
 
-    tally: dict[str, float] = defaultdict(float)
-    head_count: dict[str, int] = defaultdict(int)
-    label: dict[str, str] = {}
+    def w_of(op: Opinion) -> float:
+        return weights.get((op.name.lower(), topic), 1.0)
+
+    # Cluster opinions by stance, not by exact string, so "No" and "No, you should not X" merge.
+    clusters: list[dict] = []
     for op in opinions:
-        key = _norm(op.position)
-        w = weights.get((op.name.lower(), topic), 1.0)
-        tally[key] += w
-        head_count[key] += 1
-        label.setdefault(key, op.position)
+        for c in clusters:
+            if _same_stance(op.position, c["rep"]):
+                c["ops"].append(op)
+                break
+        else:
+            clusters.append({"rep": op.position, "ops": [op]})
 
-    winner = max(tally, key=tally.get)
-    total_weight = sum(tally.values()) or 1.0
-    confidence = round(tally[winner] / total_weight, 2)
+    for c in clusters:
+        c["weight"] = sum(w_of(op) for op in c["ops"])
+        # Representative label = the most descriptive (longest) phrasing in the cluster.
+        c["label"] = max((op.position for op in c["ops"]), key=len)
 
-    counts = sorted(head_count.values(), reverse=True)
+    clusters.sort(key=lambda c: c["weight"], reverse=True)
+    win = clusters[0]
+    total_weight = sum(c["weight"] for c in clusters) or 1.0
+    confidence = round(win["weight"] / total_weight, 2)
+
+    counts = sorted((len(c["ops"]) for c in clusters), reverse=True)
     split = "-".join(str(c) for c in counts)
-    unanimous = len(head_count) == 1
+    unanimous = len(clusters) == 1
 
-    majority = [op for op in opinions if _norm(op.position) == winner]
-    minority = [op for op in opinions if _norm(op.position) != winner]
+    majority = win["ops"]
+    minority = [op for c in clusters[1:] for op in c["ops"]]
 
     agreements = []
     for op in majority:
@@ -100,11 +149,11 @@ def judge(question: str, opinions: list[Opinion]) -> dict:
         dissents.append(f"{op.name} argued '{op.position}': {reason}")
 
     if unanimous:
-        verdict = f"The council is unanimous: {label[winner]}."
+        verdict = f"The council is unanimous: {win['label']}."
     else:
         verdict = (
             f"By a {split} {'weighted ' if weights else ''}majority, the council favors "
-            f"{label[winner]} \u2014 but the decision is contested (see dissent)."
+            f"{win['label']} \u2014 but the decision is contested (see dissent)."
         )
 
     return {

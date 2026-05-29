@@ -83,14 +83,29 @@ def _parse(text: str) -> tuple[str, list[str]]:
             continue
         m = re.match(r"(?i)^position[:\-]\s*(.+)$", line)
         if m and not position:
-            position = m.group(1).strip().rstrip(".")
+            position = m.group(1).strip()
             continue
         m = re.match(r"^\d+[.)]\s*(.+)$", line)
         if m:
             reasons.append(m.group(1).strip())
     if not position:
-        position = text.strip().split("\n", 1)[0][:60]
-    return position, reasons[:3]
+        position = text.strip().split("\n", 1)[0]
+    return _condense(position), reasons[:3]
+
+
+def _condense(position: str, max_words: int = 12) -> str:
+    """Keep stances short: take the first clause/sentence and cap length.
+
+    Small models sometimes write a paragraph after 'POSITION:'; a verdict reads better
+    (and clusters more reliably) when the stance is concise.
+    """
+    position = re.sub(r"\*+", "", position).strip().strip("\"'")
+    first = re.split(r"(?<=[.!?])\s|[\u2014:;\u2013]| - | because | since | as ", position, maxsplit=1)[0]
+    first = first.strip().rstrip(".,")
+    words = first.split()
+    if len(words) > max_words:
+        first = " ".join(words[:max_words]).rstrip(".,") + "\u2026"
+    return first or position[:60]
 
 
 def _ask_real(cfg: JurorConfig, question: str, n: int, retries: int = 2) -> Opinion:

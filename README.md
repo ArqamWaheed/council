@@ -12,7 +12,7 @@ The whole idea rides on Hermes' defining property: it's **model-agnostic** — s
 with `hermes model`, no code change. The jurors are *different* models from *different*
 families, and that's the point.
 
-![Council verdict card: a 2-1 split with a confidence dial and colour-coded juror chips](docs/verdict.png)
+![Council verdict: a real 2-1 split — two hosted OpenRouter jurors vs a local Ollama juror — with a confidence dial, colour-coded juror chips and an expandable dissent panel](docs/verdict.png)
 
 ---
 
