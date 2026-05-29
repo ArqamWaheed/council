@@ -24,6 +24,10 @@ score + a "why they disagreed" panel. Verdicts are remembered; a skill learns wh
   - `council` skill installed into `~/.hermes/skills/council`; `--learn` edits weights & syncs the
     installed copy (self-improving). Verdicts mirrored into Hermes `MEMORY.md`; recall via `hermes -z`.
   - Reproducible via `setup_hermes.sh` (idempotent). Proof in `docs/hermes-proof/`.
+- **Tier 1 polish DONE (most):** foreman **TTS** readout in `index.html` (browser SpeechSynthesis;
+  button "the foreman reads the verdict"); **CI** at `.github/workflows/tests.yml` (unittest, py3.10-12,
+  mock mode) + badge in README; README has a Hermes-centered architecture diagram + setup_hermes section;
+  `docs/BLOG_POST.md` (dev.to) rewritten to match real Hermes orchestration. Remaining: t1-demo gif (optional).
 - Hermes facts: requires >=64K ctx (set `model.ollama_num_ctx: 65536` + custom_providers
   `context_length`); `-z` prints final answer only; key lives in `~/.hermes/.env`.
 - Runs offline in mock mode (no key / no hermes) for a deterministic demo. Free tier is 429-heavy.
@@ -53,6 +57,8 @@ score + a "why they disagreed" panel. Verdicts are remembered; a skill learns wh
 - `council/memory.py` — append/query past verdicts (data/verdicts.jsonl)
 - `skills/council/SKILL.md` — juror-weighting brain Hermes edits (learning loop)
 - `server.py`       — Flask endpoint serving index.html + /api/convene
-- `index.html`      — designed verdict UI
+- `index.html`      — designed verdict UI (with foreman TTS readout)
+- `.github/workflows/tests.yml` — CI: unittest in offline mock mode
+- `docs/BLOG_POST.md` — dev.to submission post (tie-break asset; screenshots docs/*.png)
 - `app.py`          — Streamlit fallback UI
 - `setup.sh`        — one-command setup
