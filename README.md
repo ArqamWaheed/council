@@ -99,12 +99,25 @@ All optional — see [`.env.example`](.env.example).
 | Var | Default | Purpose |
 |---|---|---|
 | `OPENROUTER_API_KEY` | *(empty)* | Free OpenRouter key. Empty ⇒ offline mock mode. |
-| `JUROR_1_MODEL` | `meta-llama/llama-3.3-70b-instruct:free` | First juror (≥64K ctx). |
-| `JUROR_2_MODEL` | `deepseek/deepseek-chat-v3-0324:free` | Second juror, different family. |
-| `OLLAMA_MODEL` | *(empty)* | Optional local "on-device" juror. |
+| `JUROR_1_MODEL` | `openai/gpt-oss-120b:free` | First juror (≥64K ctx). |
+| `JUROR_2_MODEL` | `z-ai/glm-4.5-air:free` | Second juror, different family. |
+| `OLLAMA_MODEL` | *(empty)* | Optional local "on-device" juror (e.g. `qwen2.5`). |
 | `JUDGE_MODEL` | `JUROR_1_MODEL` | Model Hermes uses to synthesize. |
 
 > Hermes rejects models under 64K context at startup — pick `:free` models that clear that bar.
+
+### Add a third, local juror (recommended)
+
+The strongest demonstration of Hermes' model-agnostic core is mixing a **hosted** provider and a
+**local** one through the *same* interface. Pull any model with Ollama and point Council at it:
+
+```bash
+ollama pull qwen2.5
+echo "OLLAMA_MODEL=qwen2.5" >> .env     # plus OLLAMA_BASE_URL if not the default
+```
+
+Now the council convenes two hosted jurors **and** a private, on-device third opinion — no code
+change. (Offline mock mode already simulates this third juror so demos show three either way.)
 
 ---
 

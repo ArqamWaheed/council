@@ -59,7 +59,7 @@ confidence = round(tally[winner] / (sum(tally.values()) or 1.0), 2)
 
 ## How I Used Hermes Agent
 
-**Why Hermes at all — the model-agnostic core.** Hermes lets you point at any provider and swap with `hermes model`, no code change. Council is built *on top of that one property*: the jurors are different models, and Hermes is the only piece that makes "different models" cheap. I genuinely didn't see another entry in this challenge exploit model-agnosticism — everyone picked one model and moved on. That's the whole bet.
+**Why Hermes at all — the model-agnostic core.** Hermes lets you point at any provider and swap with `hermes model`, no code change. Council is built *on top of that one property*: the jurors are different models, and Hermes is the only piece that makes "different models" cheap. The clearest proof is the third juror — it runs **locally** via Ollama while the other two are **hosted** on OpenRouter, and all three answer through the exact same interface. A hosted model and an on-device model, sitting on the same jury, no code change: that's model-agnosticism you can see. I genuinely didn't see another entry in this challenge exploit it — everyone picked one model and moved on. That's the whole bet.
 
 **Why subagents (and the gotcha).** I wanted each juror in isolated context so one model's reasoning couldn't anchor another's. My first plan was one `delegate_task` subagent per juror. The gotcha I hit: making each subagent run on a *different* provider per call isn't the clean, guaranteed path I wanted to bet a submission on. So I fell back to Hermes' **`execute_code`** tool — it runs a small Python script (`jurors.py`) that calls each model over the OpenAI-compatible API and hands the results straight back to Hermes to judge. Either way the *judging and learning* stays in Hermes; the fan-out is just plumbing.
 
@@ -75,7 +75,7 @@ On the next security question that juror's vote counts 1.5×, read straight back
 
 **The build itself was agent-run.** I kept a `memory.md` the coding agent read before each task and updated after (so context stayed cheap), committed every increment with Conventional Commits, and built the verdict UI with the **frontend-design** skill — which is why the confidence dial and colour-coded juror chips read as *designed*, not default-template AI slop. The repo's `AGENTS.md` + commit history show the process, not just the result.
 
-**Why these models, and the concession.** Two free OpenRouter models (≥64K context — Hermes rejects smaller at startup) plus a local Ollama juror. Concession: free models are slower and three calls add latency (~10–20s/verdict). For a once-a-decision tool, I'll take it. Cost: $0.
+**Why these models, and the concession.** Two free OpenRouter models from different families (≥64K context — Hermes rejects smaller at startup) plus a local Ollama juror. Two honest concessions: (1) free models are slower and three calls add latency (~10–20s/verdict); (2) the free tier is *aggressively* rate-limited — I hit 429s constantly while building, so Council retries with backoff and, if a juror still won't answer, falls back to a deterministic stand-in rather than crashing the verdict. For a once-a-decision tool, I'll take it. Cost: $0.
 
 **License.** MIT — fork it, add your own jurors.
 

@@ -17,6 +17,9 @@ score + a "why they disagreed" panel. Verdicts are remembered; a skill learns wh
 ## Status snapshot
 - Bootstrap, jurors, judge, skill, UI, blog draft: built.
 - Runs offline in mock mode (no API key needed) for a deterministic demo.
+- Verified live with real models: defaults are `openai/gpt-oss-120b:free` + `z-ai/glm-4.5-air:free`
+  (different families, responsive). Free tier is heavily 429-rate-limited; jurors retry w/ backoff
+  then fall back to mock. Optional 3rd juror = local Ollama (set OLLAMA_MODEL) — best model-agnostic proof.
 
 ## Key decisions
 - Path B (execute_code-style Python fan-out) over delegate_task subagents: reliable, no
