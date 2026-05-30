@@ -80,13 +80,34 @@ _POLARITY = {
     "sure": "pos", "true": "pos",
 }
 
+# Negation tokens that flip a yes/no answer negative wherever they appear (e.g.
+# "...is not secure", "...is not a good idea"). Used only as a fallback when the
+# leading word is neutral, and only for non-option questions, so an "X or Y"
+# decision phrased with "not" ("Postgres, not Mongo") is never affected (those are
+# clustered by option first).
+_NEGATIONS = {
+    "not", "no", "never", "dont", "cannot", "cant", "isnt", "arent", "wasnt",
+    "werent", "shouldnt", "wont", "nope", "neither", "nor", "without", "insecure",
+    "unsafe",
+}
+
 
 def _polarity(position: str) -> str:
-    """Stance from the leading word only (so mid-string 'no-code' doesn't read as negative)."""
-    toks = re.findall(r"[a-z']+", position.lower())
+    """Stance polarity for a yes/no answer.
+
+    Prefers the leading word (so mid-string 'no-code' doesn't read as negative);
+    if that's neutral, a negation anywhere ('...is not secure') marks the stance
+    negative so equivalent 'no' answers cluster together instead of fragmenting.
+    """
+    toks = [t.replace("'", "") for t in re.findall(r"[a-z']+", position.lower())]
     if not toks:
         return ""
-    return _POLARITY.get(toks[0].replace("'", ""), "")
+    lead = _POLARITY.get(toks[0], "")
+    if lead:
+        return lead
+    if any(t in _NEGATIONS for t in toks):
+        return "neg"
+    return ""
 
 
 def _extract_options(question: str) -> list[str]:

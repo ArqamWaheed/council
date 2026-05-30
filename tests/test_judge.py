@@ -61,6 +61,20 @@ class TestStanceClustering(unittest.TestCase):
         ])
         self.assertFalse(d["unanimous"])
 
+    def test_negated_security_stances_cluster_unanimous(self):
+        """Regression: three jurors all say localStorage is *not* secure, phrased
+        differently — leading word neutral but a negation anywhere makes them agree."""
+        d = judge("Should I store JWTs in localStorage?", [
+            op("Juror 1", "Storing JWTs in localStorage is not a secure practice", "XSS"),
+            op("Juror 2", "No, JWT in localStorage is not secure", "XSS"),
+            op("Local Juror", "Juror 1 states that the technique used is not particularly secure",
+               "privacy exposure"),
+        ])
+        self.assertTrue(d["unanimous"])
+        self.assertEqual(d["split"], "3")
+        self.assertEqual(d["confidence"], 1.0)
+        self.assertEqual(d["dissents"], [])
+
     def test_three_way_majority(self):
         d = judge("Postgres, Mongo or SQLite?", [
             op("Juror 1", "Postgres", "acid"),
@@ -248,6 +262,7 @@ class TestDebate(unittest.TestCase):
     def test_offline_convene_debate_is_deterministic(self):
         os.environ["OPENROUTER_API_KEY"] = ""
         os.environ["HERMES_ORCHESTRATION"] = "0"
+        os.environ["OLLAMA_MODEL"] = ""   # force the fully-offline mock roster
         from jurors import convene
         a = convene("Postgres or Mongo for a new SaaS?")
         b = convene("Postgres or Mongo for a new SaaS?")
@@ -259,6 +274,7 @@ class TestDebate(unittest.TestCase):
     def test_debate_skipped_when_disabled(self):
         os.environ["OPENROUTER_API_KEY"] = ""
         os.environ["HERMES_ORCHESTRATION"] = "0"
+        os.environ["OLLAMA_MODEL"] = ""   # force the fully-offline mock roster
         os.environ["COUNCIL_DEBATE"] = "0"
         try:
             from jurors import convene

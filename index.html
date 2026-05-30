@@ -137,7 +137,8 @@
   /* jurors */
   .jurors{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
     gap:0;border-bottom:1px solid var(--line)}
-  .juror{padding:22px 24px;border-right:1px solid var(--line);position:relative}
+  .juror{padding:22px 24px;border-right:1px solid var(--line);position:relative;
+    display:flex;flex-direction:column}
   .juror:last-child{border-right:none}
   .juror .top{display:flex;align-items:center;gap:9px;margin-bottom:10px}
   .dot{width:11px;height:11px;border-radius:50%;flex:none;box-shadow:0 0 12px currentColor}
@@ -145,23 +146,29 @@
     text-transform:uppercase}
   .juror .model{font-family:var(--mono);font-size:10px;color:var(--parch-dim);
     word-break:break-all;margin-bottom:12px;opacity:.8}
-  .juror .pos{font-family:var(--sans);font-weight:700;font-size:21px;margin-bottom:10px;letter-spacing:-.01em}
+  .juror .pos{font-family:var(--sans);font-weight:700;font-size:20px;margin-bottom:10px;
+    letter-spacing:-.01em;line-height:1.25;overflow-wrap:anywhere}
   .juror ul{margin:0;padding-left:18px}
-  .juror li{font-size:15px;color:var(--parch-2);margin-bottom:6px;line-height:1.5}
-  .juror .was{font-family:var(--mono);font-size:11px;color:var(--parch-dim);margin:-4px 0 10px;
-    text-decoration:line-through;opacity:.7}
-  .juror .rebuttal{margin-top:12px;padding-top:11px;border-top:1px dashed var(--line);
-    font-style:italic;font-size:13.5px;color:var(--parch-2);line-height:1.5}
+  .juror li{font-size:15px;color:var(--parch-2);margin-bottom:6px;line-height:1.5;overflow-wrap:anywhere}
+  .juror .was{font-family:var(--mono);font-size:11px;color:var(--parch-dim);margin:-2px 0 12px;
+    text-decoration:line-through;opacity:.7;line-height:1.45;overflow-wrap:anywhere}
+  /* rebuttal pinned to the card bottom so all three round-2 replies share a baseline */
+  .juror .rebuttal{margin-top:auto;padding-top:14px;
+    border-top:1px dashed var(--line);font-style:italic;font-size:13.5px;
+    color:var(--parch-2);line-height:1.5;overflow-wrap:anywhere}
   .juror .rebuttal b{font-style:normal;font-family:var(--mono);font-size:10px;letter-spacing:.18em;
-    text-transform:uppercase;color:var(--parch-dim);display:block;margin-bottom:4px}
+    text-transform:uppercase;color:var(--parch-dim);display:block;margin-bottom:5px}
   .cbadge{display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:9px;
     letter-spacing:.14em;text-transform:uppercase;color:var(--brass);border:1px solid var(--brass);
-    border-radius:3px;padding:1px 6px;margin-left:8px;vertical-align:middle}
-  .shifts{padding:0 0 22px}
+    border-radius:3px;padding:2px 7px;margin:2px 0 0;vertical-align:middle;white-space:nowrap}
+  .juror .pos .cbadge{margin-left:8px}
+  .shifts{padding:22px 32px 24px;border-bottom:1px solid var(--line);
+    background:radial-gradient(700px 140px at 0% 0%,rgba(199,154,69,.07),transparent)}
   .shifts h4{font-family:var(--mono);font-size:11px;letter-spacing:.24em;text-transform:uppercase;
-    color:var(--brass);margin:0 0 10px}
+    color:var(--brass);margin:0 0 12px}
   .shifts .row{border-left:2px solid var(--brass);padding:6px 0 6px 16px;margin-bottom:10px;
-    color:var(--parch);font-style:italic}
+    color:var(--parch);font-style:italic;line-height:1.5}
+  .shifts .row:last-child{margin-bottom:0}
   .wbadge{position:absolute;top:18px;right:18px;font-family:var(--mono);
     font-size:10px;color:var(--brass);border:1px solid var(--line);border-radius:3px;
     padding:1px 6px}
