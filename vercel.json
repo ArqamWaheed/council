@@ -1,0 +1,29 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "builds": [
+    {
+      "src": "api/index.py",
+      "use": "@vercel/python",
+      "config": {
+        "includeFiles": [
+          "index.html",
+          "server.py",
+          "run_council.py",
+          "jurors.py",
+          "hermes_run.py",
+          "council/**",
+          "skills/**",
+          "data/**"
+        ]
+      }
+    }
+  ],
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/api/index" }
+  ],
+  "env": {
+    "HERMES_ORCHESTRATION": "0",
+    "OLLAMA_MODEL": "",
+    "COUNCIL_DATA_DIR": "/tmp/council-data"
+  }
+}

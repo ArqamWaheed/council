@@ -15,6 +15,9 @@ data/verdicts.jsonl
 # Draft writeups (kept local)
 docs/BLOG_POST.md
 
+# Generated architecture diagrams + the generator (kept local, not committed)
+docs/diagrams/
+
 # OS / editor
 .DS_Store
 .idea/

@@ -10,7 +10,8 @@ import os
 from datetime import datetime, timezone
 from pathlib import Path
 
-DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+# Writable on a serverless/read-only deploy (e.g. Vercel) via COUNCIL_DATA_DIR=/tmp/...
+DATA_DIR = Path(os.getenv("COUNCIL_DATA_DIR", str(Path(__file__).resolve().parent.parent / "data")))
 STORE = DATA_DIR / "verdicts.jsonl"
 
 HERMES_HOME = Path(os.getenv("HERMES_HOME", str(Path.home() / ".hermes")))
@@ -47,12 +48,19 @@ def mirror_to_hermes(verdict: dict, keep: int = 25) -> None:
 
 
 def remember(verdict: dict) -> None:
-    """Append a verdict to the persistent log (and mirror to Hermes memory)."""
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    """Append a verdict to the persistent log (and mirror to Hermes memory).
+
+    Best-effort: on a read-only serverless filesystem the write is skipped rather
+    than raising, so the verdict still returns (the client keeps weights itself).
+    """
     record = dict(verdict)
     record.setdefault("timestamp", datetime.now(timezone.utc).isoformat())
-    with STORE.open("a", encoding="utf-8") as fh:
-        fh.write(json.dumps(record) + "\n")
+    try:
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        with STORE.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(record) + "\n")
+    except OSError:
+        pass
     mirror_to_hermes(record)
 
 
