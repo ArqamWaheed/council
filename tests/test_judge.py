@@ -131,6 +131,31 @@ class TestParsing(unittest.TestCase):
         self.assertTrue(d["unanimous"])
         self.assertEqual(d["dissents"], [])
 
+    def test_comma_list_extracts_three_options_including_go(self):
+        """Regression: 'go' was a stopword and only 2 options were ever parsed, so a
+        Go endorsement was invisible. Now 'Python, Go, or Rust' yields all three."""
+        from run_council import _extract_options
+        self.assertEqual(
+            _extract_options("Python, Go, or Rust for a high-throughput backend service?"),
+            ["python", "go", "rust"])
+
+    def test_three_option_question_clusters_each_juror(self):
+        d = judge("Python, Go, or Rust for a high-throughput backend service?", [
+            op("Juror 1", "Rust is the best choice", "speed"),
+            op("Juror 2", "Go for simplicity and good concurrency", "easy"),
+            op("Local Juror", "Python is the best choice", "ecosystem"),
+        ])
+        self.assertFalse(d["unanimous"])
+        self.assertEqual(d["split"], "1-1-1")
+
+    def test_short_option_not_matched_inside_words(self):
+        """'go' must not match inside 'good'/'google' — a Rust-only position with the
+        word 'good' in it endorses Rust, not Go."""
+        from run_council import _option_of
+        self.assertEqual(
+            _option_of("Rust gives good performance", ["python", "go", "rust"]),
+            "rust")
+
     def test_comparison_mention_not_counted_as_endorsement(self):
         from run_council import _option_of
         # Mentions Mongo only as the thing it's better THAN -> endorses Postgres.
@@ -258,6 +283,31 @@ class TestDebate(unittest.TestCase):
         self.assertTrue(j2["changed_mind"])
         self.assertEqual(j2["original_position"], "Mongo")
         self.assertEqual(j2["rebuttal"], "Postgres' ACID guarantees win me over.")
+
+    def test_reword_is_not_counted_as_changed_mind(self):
+        """Regression: a juror that keeps the same vote but rephrases it ('Rust for
+        backends' -> 'Rust') must NOT be reported as a debate shift."""
+        same = op("Juror 2", "Rust", "speed")
+        same.original_position = "Rust for high-throughput backend services"
+        same.changed_mind = True   # jurors.py over-flagged it on raw strings
+        same.deliberated = True
+        d = judge("Python, Go, or Rust for a high-throughput backend service?", [
+            op("Juror 1", "Rust is the best choice", "speed"), same,
+        ])
+        self.assertEqual(d["shifts"], [])
+        j2 = next(j for j in d["jurors"] if j["name"] == "Juror 2")
+        self.assertFalse(j2["changed_mind"])
+
+    def test_real_flip_is_counted_as_changed_mind(self):
+        """A juror that actually switches options IS reported as a shift."""
+        flip = op("Local Juror", "Go", "simplicity")
+        flip.original_position = "Python is the best choice"
+        flip.deliberated = True
+        d = judge("Python, Go, or Rust for a high-throughput backend service?", [
+            op("Juror 1", "Rust is the best choice", "speed"), flip,
+        ])
+        self.assertEqual(len(d["shifts"]), 1)
+        self.assertIn("Local Juror", d["shifts"][0])
 
     def test_offline_convene_debate_is_deterministic(self):
         os.environ["OPENROUTER_API_KEY"] = ""

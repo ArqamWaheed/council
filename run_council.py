@@ -69,8 +69,11 @@ def _norm(position: str) -> str:
 _STOP = {
     "the", "a", "an", "to", "you", "your", "should", "would", "is", "are", "of", "for",
     "it", "be", "this", "that", "do", "does", "with", "and", "or", "in", "on", "we",
-    "i", "use", "using", "go", "going", "not", "no", "yes",
+    "i", "use", "using", "going", "not", "no", "yes",
 }
+# Note: "go" is intentionally NOT a stopword — it's a real option ("Python, Go, or
+# Rust?"). Two-letter options are matched by exact token only (see _opt_match) so
+# "go" never matches inside words like "good" or "google".
 
 # Leading polarity word -> stance bucket. Lets "No" and "No, you should not X" cluster together.
 _POLARITY = {
@@ -110,27 +113,45 @@ def _polarity(position: str) -> str:
     return ""
 
 
-def _extract_options(question: str) -> list[str]:
-    """Pull the candidate options out of an 'X or Y' / 'X vs Y' decision question.
+def _seg_option(segment: str) -> str:
+    """The last content word of a comma/connector segment (the option it names),
+    e.g. 'Should we use Python' -> 'python', ' Go' -> 'go'."""
+    words = [w for w in _norm(segment).split() if w not in _STOP and len(w) > 1]
+    return words[-1] if words else ""
 
-    Returns the single content word adjacent to the connector on each side
-    (e.g. 'Postgres or Mongo for a new SaaS?' -> ['postgres', 'mongo']). This is
-    deliberately conservative: if it can't find clean options it returns [] and the
-    judge falls back to generic stance clustering.
+
+def _extract_options(question: str) -> list[str]:
+    """Pull the candidate options out of a decision question.
+
+    Handles two-option forms ('Postgres or Mongo for a new SaaS?' -> ['postgres',
+    'mongo']) and comma-separated lists ('Python, Go, or Rust for a backend?' ->
+    ['python', 'go', 'rust']). Conservative: if it can't find >=2 distinct clean
+    options it returns [] and the judge falls back to generic stance clustering.
     """
     q = re.sub(r"[?.!]+$", "", question.strip())
     m = re.search(r"(.+?)\b(?:or|vs\.?|versus)\b(.+)", q, re.IGNORECASE)
     if not m:
         return []
-    left = [w for w in _norm(m.group(1)).split() if w not in _STOP and len(w) > 1]
-    right = [w for w in _norm(m.group(2)).split() if w not in _STOP and len(w) > 1]
-    opts = []
-    if left:
-        opts.append(left[-1])   # word just before the connector
+    left_raw, right_raw = m.group(1), m.group(2)
+    opts: list[str] = []
+    # Left of the connector may be a comma list ("A, B,"); take one option per
+    # segment. Otherwise just the single word right before the connector.
+    if "," in left_raw:
+        opts.extend(o for o in (_seg_option(seg) for seg in left_raw.split(",")) if o)
+    else:
+        o = _seg_option(left_raw)
+        if o:
+            opts.append(o)
+    # Right of the connector: first content word (the trailing option).
+    right = [w for w in _norm(right_raw).split() if w not in _STOP and len(w) > 1]
     if right:
-        opts.append(right[0])   # word just after the connector
-    # Only trust this when the two options are distinct.
-    return opts if len(set(opts)) == len(opts) and len(opts) >= 2 else []
+        opts.append(right[0])
+    # De-dupe preserving order; only trust the result when >=2 distinct options.
+    deduped: list[str] = []
+    for o in opts:
+        if o not in deduped:
+            deduped.append(o)
+    return deduped if len(deduped) >= 2 else []
 
 
 _COMPARE_MARKERS = {
@@ -139,20 +160,40 @@ _COMPARE_MARKERS = {
 }
 
 
+def _opt_match(option: str, toks: set[str], norm: str) -> bool:
+    """Does an option occur in a position? Short options (<=3 chars, e.g. 'go')
+    match on exact token only, so they don't fire inside 'good'/'google'. Longer
+    options also match as a substring so 'postgres' catches 'postgresql'."""
+    if option in toks:
+        return True
+    return len(option) >= 4 and option in norm
+
+
+def _option_occurrences(text: str, option: str) -> list[int]:
+    """Start indices of `option` in `text`. Long options (>=4 chars) match as a
+    substring ('postgres' in 'postgresql'); short ones are word-bounded so 'go'
+    isn't found inside 'good'."""
+    if len(option) >= 4:
+        out, start = [], 0
+        while True:
+            i = text.find(option, start)
+            if i < 0:
+                break
+            out.append(i)
+            start = i + len(option)
+        return out
+    return [m.start() for m in re.finditer(rf"\b{re.escape(option)}\b", text)]
+
+
 def _first_option(text: str, options: list[str]) -> str:
     """The option mentioned earliest in `text`, skipping ones used in a comparison
     ('...better than Mongo', '...other DBs like Mongo' don't count as endorsements)."""
     best, best_i = "", len(text) + 1
     for o in options:
-        start = 0
-        while True:
-            i = text.find(o, start)
-            if i < 0:
-                break
+        for i in _option_occurrences(text, o):
             before = text[:i].split()
             if not (before and before[-1] in _COMPARE_MARKERS) and i < best_i:
                 best, best_i = o, i
-            start = i + len(o)
     return best
 
 
@@ -161,7 +202,7 @@ def _option_of(position: str, options: list[str], reasons: list[str] | None = No
     (e.g. a small model wrote a vague position), falls back to the reasons text."""
     norm = _norm(position)
     toks = set(norm.split())
-    hits = [o for o in options if o in toks or o in norm]
+    hits = [o for o in options if _opt_match(o, toks, norm)]
     if len(hits) == 1:
         return hits[0]
     if len(hits) > 1:
@@ -187,6 +228,19 @@ def _same_stance(a: str, b: str) -> bool:
     if ta and tb:
         return len(ta & tb) / len(ta | tb) >= 0.5
     return na == nb
+
+
+def _stance_changed(
+    original: str, current: str, options: list[str], reasons: list[str] | None = None
+) -> bool:
+    """Did a juror actually change its vote between rounds? Compares stance/option,
+    not raw strings, so a mere rewording ('Rust for backends' -> 'Rust') is NOT a
+    change while a real flip ('Rust' -> 'Go') is."""
+    if not original or not current:
+        return False
+    if options:
+        return _option_of(original, options, reasons) != _option_of(current, options, reasons)
+    return not _same_stance(original, current)
 
 
 def judge(question: str, opinions: list[Opinion], extra_weights: dict | None = None) -> dict:
@@ -251,6 +305,13 @@ def judge(question: str, opinions: list[Opinion], extra_weights: dict | None = N
         )
 
     debated = any(op.deliberated for op in opinions)
+    # Recompute changed_mind by stance/option (jurors.py only had the raw string),
+    # so rewordings don't read as mind-changes and real flips still do.
+    for op in opinions:
+        if op.deliberated:
+            op.changed_mind = _stance_changed(
+                op.original_position, op.position, options, op.reasons
+            )
     shifts = [
         f"{op.name} moved from '{op.original_position}' to '{op.position}' after the debate."
         for op in opinions

@@ -35,7 +35,19 @@ score + a "why they disagreed" panel. Verdicts are remembered; a skill learns wh
   talked-round juror actually shifts the outcome. Verdict gains `debated`, `shifts`, and per-juror
   `original_position`/`changed_mind`/`rebuttal`. UI shows a "⇄ changed" badge + struck round-1 stance +
   round-2 rebuttal + a "the debate changed minds" panel. Toggle off with `COUNCIL_DEBATE=0`. Tests:
-  tests/test_judge.py TestDebate (26 tests total).
+  tests/test_judge.py TestDebate (32 tests total).
+- **Clustering logic audit (5 live questions) DONE.** Fixed two real bugs found by running diverse
+  questions through the live council: (1) `changed_mind`/`shifts` were raw-string compares in jurors.py,
+  so a reword ("Rust for backends" → "Rust") falsely read as a mind-change — now `judge()` recomputes
+  `changed_mind` by stance/option via `_stance_changed` (option diff, else `_same_stance`). (2) "go" was a
+  stopword and `_extract_options` only ever returned 2 options, so a Go endorsement was invisible —
+  removed "go" from `_STOP`, rewrote `_extract_options` to parse comma lists ("A, B, or C" → 3 options),
+  and made option matching length-aware (`_opt_match`/`_option_occurrences`: short options like "go" match
+  exact-token only so they don't fire inside "good"/"google"; long options keep substring match so
+  "postgres" catches "postgresql"). Known limitation (not fixed, too risky for the deterministic
+  clusterer): open-ended questions where two jurors agree but word it very differently
+  (e.g. "task-queue system" vs "job-queue with workers") can still read as a split, and a positively-phrased
+  agreement to a yes/no question ("CSRF protection is important" vs "No, don't disable CSRF") may not cluster.
 - Hermes facts: requires >=64K ctx (set `model.ollama_num_ctx: 65536` + custom_providers
   `context_length`); `-z` prints final answer only; key lives in `~/.hermes/.env`.
 - Runs offline in mock mode (no key / no hermes) for a deterministic demo. Free tier is 429-heavy.
@@ -47,7 +59,7 @@ score + a "why they disagreed" panel. Verdicts are remembered; a skill learns wh
   wins, skipping comparison contexts like "better than Mongo"/"like Mongo") so an agreeing juror isn't
   mis-clustered as a dissenter. Parser strips markdown + leading labels ("POSITION:") so a stance isn't
   misread. UI renders **bold** and shows a progress-bar loading screen (asymptotic %, elapsed timer,
-  staged status). Tests: tests/test_judge.py (18 tests).
+  staged status). Tests: tests/test_judge.py (32 tests).
 
 ## Key decisions
 - Hermes is the orchestrator for real (Criterion A): one Hermes run per juror on a different model.
