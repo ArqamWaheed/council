@@ -125,7 +125,7 @@ On the next security question that juror's vote counts 1.5×, read straight back
 - **The disagreement is the product.** A 2–1 split is *more* useful than a confident single answer — so the clustering that decides "who actually disagreed" has to be right. A small local model once wrote a vague position ("to facilitate efficient integration…") whose *reasons* clearly endorsed Postgres; the first version mis-filed it as a dissenter. The fix: when a juror's stated position is ambiguous, fall back to reading its reasons, and ignore options only mentioned in a comparison ("better *than* Mongo" isn't a vote for Mongo). Now agreeing jurors cluster together, and the split count is honest.
 - **Grounded beats glib.** Letting the agent propose its own weighting only works if the proposal is tied to real evidence; an ungrounded "reflect" just echoes whatever example is in the skill.
 - Hermes' 64K-context floor caught a model that would've quietly underperformed.
-- Next: let jurors see each other's first answers for a real second round (true debate).
+- **A council should deliberate, not just vote.** So the jurors now get a *second* round: each sees the others' first answers and either holds or changes its mind — and a juror that's talked round actually moves the verdict (watch the confidence dial climb as a 2–1 split becomes unanimous).
 
 One question for you: **I weight a *local* model higher on security after it out-caught the hosted ones — but that's one user's anecdote turning into a rule. How would you decide when an agent's self-learned weighting is signal vs. overfitting?**
 

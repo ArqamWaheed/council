@@ -95,6 +95,12 @@ skill file and memory.
   **in parallel**. Hosted jurors use Hermes' `openrouter` provider; the local juror uses a Hermes
   custom provider (`ollama-local`), so a hosted and an on-device model run through the *same*
   model-agnostic interface. Each juror in the JSON is tagged `"via": "hermes"`.
+- **Round 2 — the debate (`jurors.deliberate()`)** — if the jurors disagree, a *second* round runs:
+  each juror is shown its peers' positions and lead reasons and either **holds** or **changes its
+  mind**. Real jurors reconsider through the same Hermes path (genuine extra agentic work); mock
+  jurors reconsider deterministically so the offline demo stays reproducible. The verdict is judged
+  on the **deliberated** opinions, so a juror that's talked round actually shifts the outcome — the
+  UI flags the change (`⇄ changed`) and shows each juror's rebuttal. Disable with `COUNCIL_DEBATE=0`.
 - **Judge / foreman (`run_council.py`)** — deterministic clustering sets the confidence, split,
   agreements and dissents (so it's testable); the spoken **foreman** summary is synthesized by
   Hermes via `hermes -z --skills council`. The UI can read it aloud (browser TTS; Hermes also ships
