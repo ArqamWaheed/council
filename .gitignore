@@ -12,6 +12,9 @@ env/
 # Council runtime data
 data/verdicts.jsonl
 
+# Draft writeups (kept local)
+docs/BLOG_POST.md
+
 # OS / editor
 .DS_Store
 .idea/

@@ -78,6 +78,6 @@ score + a "why they disagreed" panel. Verdicts are remembered; a skill learns wh
 - `server.py`       — Flask endpoint serving index.html + /api/convene
 - `index.html`      — designed verdict UI (with foreman TTS readout)
 - `.github/workflows/tests.yml` — CI: unittest in offline mock mode
-- `docs/BLOG_POST.md` — dev.to submission post (tie-break asset; screenshots docs/*.png)
+- `docs/BLOG_POST.md` — dev.to submission post (kept local / gitignored; screenshots docs/*.png)
 - `app.py`          — Streamlit fallback UI
 - `setup.sh`        — one-command setup
