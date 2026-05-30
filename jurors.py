@@ -44,6 +44,11 @@ class Opinion:
     raw: str = ""
     mocked: bool = False
     via: str = ""          # orchestrator that produced it: "hermes" | "openrouter" | "mock"
+    # --- round 2 (deliberation) ---
+    original_position: str = ""   # round-1 stance, set only if a debate round ran
+    changed_mind: bool = False    # True if the juror moved after hearing its peers
+    rebuttal: str = ""            # one-line reply to the other jurors
+    deliberated: bool = False     # True once this juror has been through round 2
 
 
 PROMPT = (
@@ -52,6 +57,20 @@ PROMPT = (
     "(prefix it with 'POSITION:'), then give exactly 3 short reasons as a "
     "numbered list. Be decisive; do not hedge.\n\nQUESTION: {q}"
 )
+
+# Round 2: each juror sees the others' first-round positions and either holds or moves.
+REBUTTAL_PROMPT = (
+    "You are juror {n} on a decision council. In round one you said:\n"
+    "POSITION: {self_pos}\n\n"
+    "The OTHER jurors argued:\n{peers}\n\n"
+    "This is the deliberation round. Weigh their arguments honestly. If they have "
+    "genuinely changed your mind, CHANGE your position; otherwise HOLD it. Reply in "
+    "EXACTLY this format, nothing else:\n"
+    "POSITION: <your position now>\n"
+    "REBUTTAL: <one sentence answering the others>\n\nQUESTION: {q}"
+)
+
+_REBUTTAL_RE = re.compile(r"^[\s>*_#-]*rebuttal[\s*_]*[:\-\u2014]\s*(.+)$", re.IGNORECASE)
 
 
 def roster() -> list[JurorConfig]:
@@ -241,15 +260,141 @@ def ask_juror(cfg: JurorConfig, question: str, n: int) -> Opinion:
     return op
 
 
-def convene(question: str) -> list[Opinion]:
+def convene(question: str, rounds: int = 2) -> list[Opinion]:
     """Fan out the question to every juror (in parallel) and collect their opinions.
 
     Each juror is an independent Hermes run, so they execute concurrently — genuine
-    parallel delegation rather than a serial loop.
+    parallel delegation rather than a serial loop. When ``rounds >= 2`` and the first
+    round disagrees, a second *deliberation* round runs: each juror is shown the
+    others' positions and may hold or change its mind (a real council debates, it
+    doesn't just vote once). Disable with ``COUNCIL_DEBATE=0``.
     """
     jurors = roster()
     with ThreadPoolExecutor(max_workers=len(jurors) or 1) as pool:
-        return list(pool.map(lambda ic: ask_juror(ic[1], question, ic[0] + 1), enumerate(jurors)))
+        opinions = list(
+            pool.map(lambda ic: ask_juror(ic[1], question, ic[0] + 1), enumerate(jurors))
+        )
+    if rounds >= 2 and _debate_enabled() and _has_disagreement(opinions):
+        opinions = deliberate(question, opinions)
+    return opinions
+
+
+def _debate_enabled() -> bool:
+    return os.getenv("COUNCIL_DEBATE", "1").strip().lower() not in {"0", "false", "no"}
+
+
+def _has_disagreement(opinions: list[Opinion]) -> bool:
+    """True if the jurors don't all share the same (normalized) round-1 position."""
+    seen = {re.sub(r"\s+", " ", op.position.strip().lower()) for op in opinions}
+    return len(seen) > 1
+
+
+def _peer_brief(opinions: list[Opinion], me: int) -> str:
+    """One line per *other* juror: their name, position, and lead reason."""
+    out = []
+    for i, op in enumerate(opinions):
+        if i == me:
+            continue
+        reason = op.reasons[0] if op.reasons else ""
+        out.append(f"- {op.name} says '{op.position}'" + (f" because {reason}" if reason else ""))
+    return "\n".join(out)
+
+
+def _leading_position(opinions: list[Opinion]) -> str:
+    """The most-held round-1 position (ties broken by first appearance) — used by the
+    deterministic mock so the debate has a coherent 'side' to be persuaded toward."""
+    counts: dict[str, int] = {}
+    order: list[str] = []
+    for op in opinions:
+        if op.position not in counts:
+            order.append(op.position)
+        counts[op.position] = counts.get(op.position, 0) + 1
+    return max(order, key=lambda p: (counts[p], -order.index(p)))
+
+
+def _rebut_real(cfg: JurorConfig, question: str, op: Opinion, peers: str, n: int) -> Opinion:
+    """Ask a real juror (via Hermes, else direct API) to reconsider given its peers."""
+    prompt = REBUTTAL_PROMPT.format(n=n, self_pos=op.position, peers=peers, q=question)
+    text = ""
+    if cfg.provider and hermes_run.available():
+        text = hermes_run.ask(prompt, cfg.provider, cfg.model)
+    else:
+        from openai import OpenAI
+
+        api_key = os.getenv(cfg.api_key_env, "") if cfg.api_key_env else "ollama"
+        client = OpenAI(base_url=cfg.base_url, api_key=api_key or "ollama")
+        resp = client.chat.completions.create(
+            model=cfg.model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.5,
+        )
+        text = resp.choices[0].message.content or ""
+    new_pos, _ = _parse(text)
+    rebuttal = ""
+    for line in text.splitlines():
+        m = _REBUTTAL_RE.match(line.strip())
+        if m:
+            rebuttal = _strip_md(m.group(1))
+            break
+    return _finalize_round2(op, new_pos or op.position, rebuttal)
+
+
+def _mock_rebut(op: Opinion, leading: str, persuaded: bool) -> Opinion:
+    """Deterministic round 2 for offline mode: a minority juror moves to the leading
+    position when the (seed-derived) ``persuaded`` bit is set; otherwise it holds."""
+    if op.position != leading and persuaded:
+        rebuttal = f"The case for {leading} is stronger than mine — I change my vote."
+        return _finalize_round2(op, leading, rebuttal)
+    rebuttal = f"I hear the others, but I stand by {op.position}."
+    return _finalize_round2(op, op.position, rebuttal)
+
+
+def _finalize_round2(op: Opinion, new_pos: str, rebuttal: str) -> Opinion:
+    op.original_position = op.position
+    op.changed_mind = _norm_pos(new_pos) != _norm_pos(op.position)
+    op.position = new_pos
+    op.rebuttal = rebuttal
+    op.deliberated = True
+    if op.changed_mind:
+        op.raw = f"{op.raw}\n[round 2] changed: {op.original_position} -> {new_pos}\nREBUTTAL: {rebuttal}"
+    else:
+        op.raw = f"{op.raw}\n[round 2] held position\nREBUTTAL: {rebuttal}"
+    return op
+
+
+def _norm_pos(p: str) -> str:
+    return re.sub(r"\s+", " ", p.strip().lower())
+
+
+def deliberate(question: str, opinions: list[Opinion]) -> list[Opinion]:
+    """Round 2: show each juror its peers' positions; it holds or changes its mind.
+
+    Real jurors reconsider through the same Hermes/OpenRouter path as round 1 (so the
+    debate is genuine extra agentic work). Mock jurors reconsider deterministically so
+    the offline demo stays reproducible. The judge then synthesizes the verdict from the
+    *deliberated* opinions, so a juror that's talked round actually shifts the outcome.
+    """
+    leading = _leading_position(opinions)
+
+    def reconsider(i: int) -> Opinion:
+        op = opinions[i]
+        peers = _peer_brief(opinions, i)
+        if op.mocked:
+            seed = int(hashlib.sha256(f"r2:{i}:{op.position}:{leading}".encode()).hexdigest(), 16)
+            return _mock_rebut(op, leading, persuaded=bool(seed & 1))
+        cfg = next((c for c in roster() if c.name == op.name), None)
+        if cfg is None:
+            return _finalize_round2(op, op.position, "")
+        try:
+            return _rebut_real(cfg, question, op, peers, i + 1)
+        except Exception as exc:  # debate is best-effort; keep the round-1 stance
+            op.original_position = op.position
+            op.deliberated = True
+            op.raw = f"{op.raw}\n[round 2 skipped: {exc}]"
+            return op
+
+    with ThreadPoolExecutor(max_workers=len(opinions) or 1) as pool:
+        return list(pool.map(reconsider, range(len(opinions))))
 
 
 if __name__ == "__main__":

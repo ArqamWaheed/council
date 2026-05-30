@@ -229,6 +229,13 @@ def judge(question: str, opinions: list[Opinion], extra_weights: dict | None = N
             f"{win['label']} \u2014 but the decision is contested (see dissent)."
         )
 
+    debated = any(op.deliberated for op in opinions)
+    shifts = [
+        f"{op.name} moved from '{op.original_position}' to '{op.position}' after the debate."
+        for op in opinions
+        if op.changed_mind
+    ]
+
     return {
         "question": question,
         "topic": topic,
@@ -236,6 +243,8 @@ def judge(question: str, opinions: list[Opinion], extra_weights: dict | None = N
         "confidence": confidence,
         "split": split,
         "unanimous": unanimous,
+        "debated": debated,
+        "shifts": shifts,
         "agreements": agreements,
         "dissents": dissents,
         "jurors": [
@@ -247,6 +256,9 @@ def judge(question: str, opinions: list[Opinion], extra_weights: dict | None = N
                 "weight": weights.get((op.name.lower(), topic), 1.0),
                 "mocked": op.mocked,
                 "via": op.via,
+                "original_position": op.original_position,
+                "changed_mind": op.changed_mind,
+                "rebuttal": op.rebuttal,
             }
             for op in opinions
         ],

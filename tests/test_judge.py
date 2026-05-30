@@ -192,5 +192,81 @@ class TestReflect(unittest.TestCase):
         self.assertIn("Mongo", swayed["verdict"])
 
 
+class TestDebate(unittest.TestCase):
+    """Round 2 deliberation: jurors see each other's positions and may hold or change."""
+
+    def test_disagreement_detection(self):
+        from jurors import _has_disagreement
+        self.assertFalse(_has_disagreement([op("A", "Postgres"), op("B", "postgres ")]))
+        self.assertTrue(_has_disagreement([op("A", "Postgres"), op("B", "Mongo")]))
+
+    def test_leading_position_is_most_held(self):
+        from jurors import _leading_position
+        self.assertEqual(
+            _leading_position([op("A", "Postgres"), op("B", "Postgres"), op("C", "Mongo")]),
+            "Postgres")
+
+    def test_mock_rebut_persuaded_changes_to_leading(self):
+        from jurors import _mock_rebut
+        o = _mock_rebut(op("Local Juror", "Mongo"), "Postgres", persuaded=True)
+        self.assertTrue(o.changed_mind)
+        self.assertEqual(o.position, "Postgres")
+        self.assertEqual(o.original_position, "Mongo")
+        self.assertTrue(o.deliberated)
+        self.assertTrue(o.rebuttal)
+
+    def test_mock_rebut_unpersuaded_holds(self):
+        from jurors import _mock_rebut
+        o = _mock_rebut(op("Local Juror", "Mongo"), "Postgres", persuaded=False)
+        self.assertFalse(o.changed_mind)
+        self.assertEqual(o.position, "Mongo")
+        self.assertTrue(o.deliberated)
+
+    def test_persuaded_juror_already_on_leading_holds(self):
+        """A juror already on the leading side never 'changes' even if persuaded-bit is set."""
+        from jurors import _mock_rebut
+        o = _mock_rebut(op("Juror 1", "Postgres"), "Postgres", persuaded=True)
+        self.assertFalse(o.changed_mind)
+
+    def test_judge_surfaces_debate_shift(self):
+        changed = op("Juror 2", "Postgres", "acid")
+        changed.original_position = "Mongo"
+        changed.changed_mind = True
+        changed.deliberated = True
+        changed.rebuttal = "Postgres' ACID guarantees win me over."
+        d = judge("Postgres or Mongo for a new SaaS?", [
+            op("Juror 1", "Postgres", "mature"), changed,
+        ])
+        self.assertTrue(d["debated"])
+        self.assertEqual(len(d["shifts"]), 1)
+        self.assertIn("Juror 2", d["shifts"][0])
+        j2 = next(j for j in d["jurors"] if j["name"] == "Juror 2")
+        self.assertTrue(j2["changed_mind"])
+        self.assertEqual(j2["original_position"], "Mongo")
+        self.assertEqual(j2["rebuttal"], "Postgres' ACID guarantees win me over.")
+
+    def test_offline_convene_debate_is_deterministic(self):
+        os.environ["OPENROUTER_API_KEY"] = ""
+        os.environ["HERMES_ORCHESTRATION"] = "0"
+        from jurors import convene
+        a = convene("Postgres or Mongo for a new SaaS?")
+        b = convene("Postgres or Mongo for a new SaaS?")
+        self.assertTrue(all(o.mocked for o in a))
+        self.assertTrue(all(o.deliberated for o in a))   # round 2 ran (round 1 disagreed)
+        self.assertEqual([(o.position, o.changed_mind) for o in a],
+                         [(o.position, o.changed_mind) for o in b])
+
+    def test_debate_skipped_when_disabled(self):
+        os.environ["OPENROUTER_API_KEY"] = ""
+        os.environ["HERMES_ORCHESTRATION"] = "0"
+        os.environ["COUNCIL_DEBATE"] = "0"
+        try:
+            from jurors import convene
+            ops = convene("Postgres or Mongo for a new SaaS?")
+            self.assertFalse(any(o.deliberated for o in ops))
+        finally:
+            os.environ.pop("COUNCIL_DEBATE", None)
+
+
 if __name__ == "__main__":
     unittest.main()

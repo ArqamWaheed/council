@@ -28,6 +28,14 @@ score + a "why they disagreed" panel. Verdicts are remembered; a skill learns wh
   button "the foreman reads the verdict"); **CI** at `.github/workflows/tests.yml` (unittest, py3.10-12,
   mock mode) + badge in README; README has a Hermes-centered architecture diagram + setup_hermes section;
   `docs/BLOG_POST.md` (dev.to) rewritten to match real Hermes orchestration. Remaining: t1-demo gif (optional).
+- **Round 2 "true debate" DONE.** After round 1, if the jurors disagree, `jurors.deliberate()` runs a
+  second round: each juror is shown its peers' positions+lead reasons and either HOLDs or CHANGEs its mind
+  (real jurors reconsider via the same Hermes/OpenRouter path; mock jurors reconsider deterministically so
+  offline stays reproducible). The judge synthesizes the verdict from the **deliberated** opinions, so a
+  talked-round juror actually shifts the outcome. Verdict gains `debated`, `shifts`, and per-juror
+  `original_position`/`changed_mind`/`rebuttal`. UI shows a "⇄ changed" badge + struck round-1 stance +
+  round-2 rebuttal + a "the debate changed minds" panel. Toggle off with `COUNCIL_DEBATE=0`. Tests:
+  tests/test_judge.py TestDebate (26 tests total).
 - Hermes facts: requires >=64K ctx (set `model.ollama_num_ctx: 65536` + custom_providers
   `context_length`); `-z` prints final answer only; key lives in `~/.hermes/.env`.
 - Runs offline in mock mode (no key / no hermes) for a deterministic demo. Free tier is 429-heavy.
@@ -54,14 +62,15 @@ score + a "why they disagreed" panel. Verdicts are remembered; a skill learns wh
 - Max 3 jurors in the demo (clarity + latency + cost).
 
 ## Open questions / TODO
-- Round 2 "true debate" (jurors see each other's first answers) — future.
+- Round 2 "true debate" **DONE** (jurors see each other's first answers and may change their minds).
+  Future: a round 3, or letting a juror cite a *specific* peer reason in its rebuttal.
 - When is self-learned juror weighting signal vs. overfitting? (open, also the blog's closing Q)
 
 ## File map
 - `hermes_run.py`   — drive Hermes CLI (`hermes -z`) per juror/judge; availability + fallback
 - `setup_hermes.sh` — idempotent: install Hermes, wire key, register `ollama-local`, install skill
 - `docs/hermes-proof/` — Criterion-A evidence (subagents, skill learning, memory recall, verdict)
-- `jurors.py`       — fan-out: query each juror (OpenRouter/Ollama) or mock
+- `jurors.py`       — fan-out: query each juror (OpenRouter/Ollama) or mock; round-2 `deliberate()`
 - `run_council.py`  — judge: cluster stances, synthesize verdict/confidence/dissent, store memory
 - `tests/test_judge.py` — unit tests for stance clustering (run: python -m unittest discover -s tests)
 - `council/memory.py` — append/query past verdicts (data/verdicts.jsonl)

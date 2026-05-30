@@ -148,6 +148,20 @@
   .juror .pos{font-family:var(--sans);font-weight:700;font-size:21px;margin-bottom:10px;letter-spacing:-.01em}
   .juror ul{margin:0;padding-left:18px}
   .juror li{font-size:15px;color:var(--parch-2);margin-bottom:6px;line-height:1.5}
+  .juror .was{font-family:var(--mono);font-size:11px;color:var(--parch-dim);margin:-4px 0 10px;
+    text-decoration:line-through;opacity:.7}
+  .juror .rebuttal{margin-top:12px;padding-top:11px;border-top:1px dashed var(--line);
+    font-style:italic;font-size:13.5px;color:var(--parch-2);line-height:1.5}
+  .juror .rebuttal b{font-style:normal;font-family:var(--mono);font-size:10px;letter-spacing:.18em;
+    text-transform:uppercase;color:var(--parch-dim);display:block;margin-bottom:4px}
+  .cbadge{display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:9px;
+    letter-spacing:.14em;text-transform:uppercase;color:var(--brass);border:1px solid var(--brass);
+    border-radius:3px;padding:1px 6px;margin-left:8px;vertical-align:middle}
+  .shifts{padding:0 0 22px}
+  .shifts h4{font-family:var(--mono);font-size:11px;letter-spacing:.24em;text-transform:uppercase;
+    color:var(--brass);margin:0 0 10px}
+  .shifts .row{border-left:2px solid var(--brass);padding:6px 0 6px 16px;margin-bottom:10px;
+    color:var(--parch);font-style:italic}
   .wbadge{position:absolute;top:18px;right:18px;font-family:var(--mono);
     font-size:10px;color:var(--brass);border:1px solid var(--line);border-radius:3px;
     padding:1px 6px}
@@ -316,7 +330,8 @@ async function convene(){
 function startLoader(){
   const EST = 9; // seconds; bar eases toward — but never reaches — 100% until response
   const stages = ["Summoning the jurors", "Jurors taking positions",
-                  "Jurors stating their reasons", "Hermes weighing the verdict"];
+                  "Jurors stating their reasons", "The jurors deliberate (round 2)",
+                  "Hermes weighing the verdict"];
   stage.innerHTML = `
     <div class="loader">
       <div class="gav">&#9878;</div>
@@ -354,13 +369,25 @@ function render(d){
     const c = JCOLORS[i % JCOLORS.length];
     const reasons = (j.reasons||[]).map(r=>`<li>${md(r)}</li>`).join("") || "<li>(no reasons given)</li>";
     const wb = (j.weight && j.weight!==1) ? `<span class="wbadge">&times;${j.weight}</span>` : "";
+    const changed = j.changed_mind
+      ? `<span class="cbadge">&#8644; changed</span>` : "";
+    const was = j.changed_mind && j.original_position
+      ? `<div class="was">round 1: ${md(j.original_position)}</div>` : "";
+    const rebuttal = j.rebuttal
+      ? `<div class="rebuttal"><b>Round 2 &middot; rebuttal</b>${md(j.rebuttal)}</div>` : "";
     return `<div class="juror">${wb}
       <div class="top"><span class="dot" style="color:${c};background:${c}"></span>
         <span class="name" style="color:${c}">${esc(j.name)}</span></div>
       <div class="model">${esc(j.model)}</div>
-      <div class="pos">${md(j.position)}</div>
-      <ul>${reasons}</ul></div>`;
+      <div class="pos">${md(j.position)}${changed}</div>
+      ${was}
+      <ul>${reasons}</ul>${rebuttal}</div>`;
   }).join("");
+
+  const shiftsHTML = (d.debated && (d.shifts||[]).length)
+    ? `<div class="shifts"><h4>&#8644; The debate changed minds</h4>` +
+      d.shifts.map(s=>`<div class="row">${md(s)}</div>`).join("") + `</div>`
+    : "";
 
   const dissentHTML = d.dissents.length
     ? `<div class="dissent-body"><h4>Where they split</h4>` +
@@ -398,6 +425,7 @@ function render(d){
       </div>
     </div>
     <div class="jurors">${jurorsHTML}</div>
+    ${shiftsHTML}
     <div class="panel"><details open><summary><span class="tri">&#9656;</span> Why they ${d.unanimous?"agreed":"disagreed"}</summary>${dissentHTML}</details></div>
     ${anyMock?'<div class="mock-note">OFFLINE MOCK MODE — add a free OpenRouter key to .env to convene real models</div>':''}
     <div class="reflect" id="reflect">${reflectBtnHTML()}</div>
