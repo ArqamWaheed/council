@@ -1,5 +1,4 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json",
   "builds": [
     {
       "src": "api/index.py",
@@ -18,8 +17,8 @@
       }
     }
   ],
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/api/index" }
+  "routes": [
+    { "src": "/(.*)", "dest": "api/index.py" }
   ],
   "env": {
     "HERMES_ORCHESTRATION": "0",
